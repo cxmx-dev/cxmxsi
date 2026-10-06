@@ -9,33 +9,26 @@
         location.replace("index.html");
         return;
       }
-      var leaving = false;
-      function home(event) {
+      function isEsc(event) {
         var key = event.key || "";
         var code = event.code || "";
         var which = event.keyCode || event.which || 0;
-        var isEsc = key === "Escape" || key === "Esc" || code === "Escape" || which === 27;
-        if (!isEsc || event.repeat || leaving) return;
-        leaving = true;
-        location.replace("index.html");
+        return key === "Escape" || key === "Esc" || code === "Escape" || which === 27;
       }
-      var pointerDown = false;
-      document.addEventListener("pointerdown", function () { pointerDown = true; }, true);
-      document.addEventListener("pointerup", function () { pointerDown = false; }, true);
-      document.addEventListener("pointercancel", function () { pointerDown = false; }, true);
-      function releaseVideo() {
-        if (pointerDown) return;
-        var active = document.activeElement;
-        if (!active || active.tagName !== "VIDEO") return;
-        active.blur();
-        if (document.body) document.body.focus();
+      function pressReturn() {
+        var link = document.querySelector(".reel-back");
+        if (link) link.click();
       }
-      window.reelHome = home;
-      window.addEventListener("keydown", home, true);
-      window.addEventListener("keyup", home, true);
-      document.addEventListener("keydown", home, true);
-      document.addEventListener("keyup", home, true);
-      window.setInterval(releaseVideo, 200);
+      window.addEventListener("keydown", function (event) {
+        if (!isEsc(event) || event.repeat) return;
+        event.preventDefault();
+        window.setTimeout(pressReturn, 0);
+      }, true);
+      window.addEventListener("keyup", function (event) {
+        if (!isEsc(event)) return;
+        event.preventDefault();
+        pressReturn();
+      }, true);
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -76,11 +69,8 @@
       var video = document.createElement("video");
       video.controls = true;
       video.playsInline = true;
-      video.preload = "none";
-      video.tabIndex = -1;
+      video.preload = "metadata";
       video.src = reel.src;
-      video.addEventListener("keydown", window.reelHome, true);
-      video.addEventListener("keyup", window.reelHome, true);
       item.appendChild(title);
       item.appendChild(video);
       list.appendChild(item);
