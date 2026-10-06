@@ -1,0 +1,87 @@
+:root {
+  color-scheme: dark;
+  --ink: #ece7dc;
+  --muted: #9a9386;
+  --paper: #10110f;
+  --line: #2a2924;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  min-height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  padding:
+    calc(1.25rem + var(--safe-top))
+    calc(1.5rem + var(--safe-right))
+    calc(1rem + var(--safe-bottom))
+    calc(1.5rem + var(--safe-left));
+}
+
+.stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-width: 40rem;
+}
+
+.kicker {
+  margin: 0 0 0.75rem;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 0;
+  font-weight: 500;
+  font-size: clamp(4.5rem, 18vw, 9rem);
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+}
+
+.line {
+  margin: 1.25rem 0 0;
+  max-width: 18rem;
+  font-size: 1.25rem;
+  line-height: 1.4;
+}
+
+footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.device-phone h1 {
+  font-size: clamp(3.75rem, 22vw, 6rem);
+}
+
+.device-phone .line {
+  font-size: 1.125rem;
+}
