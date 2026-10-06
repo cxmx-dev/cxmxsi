@@ -58,10 +58,11 @@ body {
 }
 
 .typewriter-key--v {
-  left: 56.4%;
-  top: 76.6%;
-  width: 5.2%;
-  height: 7%;
+  left: 55.25%;
+  top: 77.9%;
+  width: 4.8%;
+  height: 6.4%;
+  transform: translate(-50%, -50%);
 }
 
 .typewriter-key:focus-visible {
