@@ -5,7 +5,22 @@
   <script>
     (function () {
       var nav = performance.getEntriesByType("navigation")[0];
-      if (nav && nav.type === "reload") location.replace("index.html");
+      if (nav && nav.type === "reload") {
+        location.replace("index.html");
+        return;
+      }
+      var leaving = false;
+      function home(event) {
+        var key = event.key || "";
+        var code = event.code || "";
+        var which = event.keyCode || event.which || 0;
+        var isEsc = key === "Escape" || key === "Esc" || code === "Escape" || which === 27;
+        if (!isEsc || event.repeat || leaving) return;
+        leaving = true;
+        location.replace("index.html");
+      }
+      window.addEventListener("keydown", home, true);
+      window.addEventListener("keyup", home, true);
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -55,13 +70,6 @@
     });
 
     empty.hidden = reels.length > 0;
-
-    document.addEventListener("keydown", function (event) {
-      if (event.key !== "Escape" && event.key !== "Esc") return;
-      if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (document.fullscreenElement) return;
-      location.href = "index.html";
-    });
   </script>
 </body>
 </html>
