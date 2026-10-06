@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <script>
+    (function () {
+      function isEsc(event) {
+        var key = event.key || "";
+        var code = event.code || "";
+        var which = event.keyCode || event.which || 0;
+        return key === "Escape" || key === "Esc" || code === "Escape" || which === 27;
+      }
+      function pressReturn() {
+        var link = document.querySelector(".reel-back");
+        if (link) link.click();
+      }
+      window.addEventListener("keydown", function (event) {
+        if (!isEsc(event) || event.repeat) return;
+        event.preventDefault();
+        window.setTimeout(pressReturn, 0);
+      }, true);
+      window.addEventListener("keyup", function (event) {
+        if (!isEsc(event)) return;
+        event.preventDefault();
+        pressReturn();
+      }, true);
+    })();
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#30271f">
+  <title>cxmx</title>
+  <link rel="icon" href="favicon.ico?v=4" sizes="48x48">
+  <link rel="stylesheet" href="site.css">
+  <script src="device.js"></script>
+</head>
+<body>
+  <main class="reel">
+    <article class="reel-sheet game-sheet">
+      <header class="reel-sheet__letterhead">
+        <p>THE SEARCH ROOM</p>
+        <p>Games</p>
+      </header>
+      <div class="reel-sheet__rule"></div>
+      <p class="game-arrange" id="game-arrange" hidden>Drag a game to move it.</p>
+      <div class="game-grid" id="game-grid"></div>
+      <a class="reel-back" href="index.html">Return</a>
+    </article>
+  </main>
+  <script>
+    var games = [
+      {
+        id: "pinball",
+        name: "Pinball",
+        text: "A browser pinball table with flippers, a plunger, and two art themes.",
+        href: "https://cxmx-dev.github.io/Pinball/",
+        img: "games/pinball.jpg"
+      }
+    ];
+
+    var grid = document.getElementById("game-grid");
+    var arranging = /(?:^|[?&])arrange=1(?:&|$)/.test(location.search);
+    var hint = document.getElementById("game-arrange");
+    if (arranging) {
+      document.body.classList.add("is-arrange");
+      hint.hidden = false;
+      var saved = [];
+      try { saved = JSON.parse(localStorage.getItem("games-order") || "[]"); } catch (err) { saved = []; }
+      if (saved.length) {
+        games.sort(function (a, b) {
+          var ai = saved.indexOf(a.id);
+          var bi = saved.indexOf(b.id);
+          if (ai < 0) ai = 999;
+          if (bi < 0) bi = 999;
+          return ai - bi;
+        });
+      }
+    }
+
+    games.forEach(function (game) {
+      var card = document.createElement("a");
+      card.className = "game-card";
+      card.href = game.href;
+      card.dataset.id = game.id;
+      var shot = document.createElement("img");
+      shot.className = "game-card__shot";
+      shot.src = game.img;
+      shot.alt = "";
+      var name = document.createElement("p");
+      name.className = "game-card__name";
+      name.textContent = game.name;
+      var text = document.createElement("p");
+      text.className = "game-card__text";
+      text.textContent = game.text;
+      card.appendChild(shot);
+      card.appendChild(name);
+      card.appendChild(text);
+      grid.appendChild(card);
+    });
+
+    if (arranging) {
+      var dragged = false;
+      grid.querySelectorAll(".game-card").forEach(function (card) {
+        card.addEventListener("click", function (event) {
+          if (!dragged) return;
+          event.preventDefault();
+          dragged = false;
+        });
+        card.addEventListener("pointerdown", function (event) {
+          if (event.button !== 0) return;
+          var startX = event.clientX;
+          var startY = event.clientY;
+          var moving = false;
+          function move(pointer) {
+            if (!moving && Math.hypot(pointer.clientX - startX, pointer.clientY - startY) < 8) return;
+            moving = true;
+            dragged = true;
+            card.classList.add("is-dragging");
+            var under = document.elementFromPoint(pointer.clientX, pointer.clientY);
+            var over = under && under.closest(".game-card");
+            if (!over || over === card) return;
+            var box = over.getBoundingClientRect();
+            var after = pointer.clientX > box.left + box.width / 2;
+            grid.insertBefore(card, after ? over.nextSibling : over);
+          }
+          function up() {
+            card.classList.remove("is-dragging");
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+            if (!moving) return;
+            var order = [].map.call(grid.children, function (item) { return item.dataset.id; });
+            localStorage.setItem("games-order", JSON.stringify(order));
+          }
+          window.addEventListener("pointermove", move);
+          window.addEventListener("pointerup", up);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

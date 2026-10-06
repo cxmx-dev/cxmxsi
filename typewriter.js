@@ -10,6 +10,17 @@ var typewriterStrikes = {
     ringGain: 0.11,
     noiseGain: 0.55,
     body: 0.085
+  },
+  g: {
+    thudHz: 188,
+    ringHz: 2320,
+    ringHz2: 3610,
+    noiseHz: 2680,
+    noiseQ: 1.15,
+    thudGain: 0.28,
+    ringGain: 0.14,
+    noiseGain: 0.46,
+    body: 0.072
   }
 };
 

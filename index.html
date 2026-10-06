@@ -17,6 +17,7 @@
         src="assets/typewriter.png"
         alt="A vintage typewriter on a wooden writing desk"
       >
+      <a class="typewriter-key typewriter-key--g" data-key="g" href="games.html" aria-label="Games">G</a>
       <a class="typewriter-key typewriter-key--v" data-key="v" href="videos.html?v=6" aria-label="Videos">V</a>
       <form class="paper-search" role="search" action="videos.html?v=6">
         <header class="paper-search__letterhead">
@@ -46,6 +47,7 @@
   <script src="typewriter.js"></script>
   <script>
     var videoWords = { vid: 1, vids: 1, video: 1, videos: 1 };
+    var gameWords = { games: 1 };
 
     document.querySelector(".paper-search").addEventListener("submit", function (event) {
       var note = document.querySelector(".paper-search__note");
@@ -55,6 +57,11 @@
       if (videoWords[query]) {
         event.preventDefault();
         window.location.href = "videos.html?v=6";
+        return;
+      }
+      if (gameWords[query]) {
+        event.preventDefault();
+        window.location.href = "games.html";
         return;
       }
       event.preventDefault();
