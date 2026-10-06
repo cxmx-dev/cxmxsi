@@ -1,10 +1,10 @@
 # cxmxsi.xyz
 
-Static first page. GitHub Pages publishes the `main` branch.
+Static page. GitHub Pages publishes the `main` branch.
 
 ## What this is
 
-One screen: the name, a short line, and a footer that reads `BUILD 01`. `device.js` sets `device-phone`, `device-tablet`, or `device-desktop` on the page.
+A desk with a typewriter. The paper is a search field. The letterhead reads THE SEARCH ROOM.
 
 ## Files
 
@@ -13,23 +13,18 @@ One screen: the name, a short line, and a footer that reads `BUILD 01`. `device.
 | `index.html` | Page |
 | `site.css` | Layout |
 | `device.js` | Device class |
+| `assets/typewriter.png` | Desk photo |
 | `favicon.svg`, `favicon.ico` | Icon |
-| `CNAME` | Custom domain `cxmxsi.xyz` |
+| `CNAME` | Custom domain |
 
 ## DNS
 
-Records live at the registrar, using the registrar's DNS.
-
-| Name | Type | Destination |
-| --- | --- | --- |
-| apex | ANAME | `the Pages host` |
-| `www` | CNAME | `the Pages host` |
-
-Machine-specific notes are in `USER-NOTES.md` (not published).
+Records live at the registrar. The bare name uses GitHub Pages addresses. `www` is a CNAME to the Pages host for this repository.
 
 ## Version History
 
 2026-10-06
 
 - First page published from `main`.
-- Apex ANAME saved at the registrar. The name had not resolved in a browser yet.
+- Typewriter search page replaced the first screen.
+- Public notes no longer name the account or a local key file.
