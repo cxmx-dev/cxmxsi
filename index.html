@@ -3,21 +3,49 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#10110f">
-  <title>cxmxsi — BUILD 01</title>
+  <meta name="theme-color" content="#30271f">
+  <title>The Search Room</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="icon" href="favicon.ico" sizes="32x32">
   <link rel="stylesheet" href="site.css">
   <script src="device.js"></script>
 </head>
 <body>
-  <main class="stage">
-    <p class="kicker">cxmxsi.xyz</p>
-    <h1>cxmxsi</h1>
-    <p class="line">A place for work in progress.</p>
+  <main class="typewriter-viewport">
+    <div class="typewriter-stage">
+      <img
+        class="typewriter-photo"
+        src="assets/typewriter.png"
+        alt="A vintage typewriter on a wooden writing desk"
+      >
+      <form class="paper-search" role="search" action="#">
+        <header class="paper-search__letterhead">
+          <p>THE SEARCH ROOM</p>
+          <p class="paper-search__number">No. 001</p>
+        </header>
+        <div class="paper-search__rule"></div>
+        <div class="paper-search__entry">
+          <label class="paper-search__prompt" for="search-query">What are you looking for?</label>
+          <input
+            class="paper-search__input"
+            id="search-query"
+            name="query"
+            type="search"
+            value="places to get lost"
+            autocomplete="off"
+            spellcheck="false"
+            enterkeyhint="search"
+          >
+          <p class="paper-search__hint">Press return to search.</p>
+          <button class="paper-search__go" type="submit">Search</button>
+        </div>
+      </form>
+    </div>
   </main>
-  <footer>
-    <span>BUILD 01</span>
-  </footer>
+  <script>
+    document.querySelector(".paper-search").addEventListener("submit", function (event) {
+      event.preventDefault();
+    });
+  </script>
 </body>
 </html>
