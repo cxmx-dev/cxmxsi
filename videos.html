@@ -19,23 +19,30 @@
         leaving = true;
         location.replace("index.html");
       }
+      var pointerDown = false;
+      document.addEventListener("pointerdown", function () { pointerDown = true; }, true);
+      document.addEventListener("pointerup", function () { pointerDown = false; }, true);
+      document.addEventListener("pointercancel", function () { pointerDown = false; }, true);
+      function releaseVideo() {
+        if (pointerDown) return;
+        var active = document.activeElement;
+        if (!active || active.tagName !== "VIDEO") return;
+        active.blur();
+        if (document.body) document.body.focus();
+      }
+      window.reelHome = home;
       window.addEventListener("keydown", home, true);
       window.addEventListener("keyup", home, true);
-      document.addEventListener("focusin", function (event) {
-        var target = event.target;
-        if (!target || target.tagName !== "VIDEO") return;
-        window.setTimeout(function () {
-          target.blur();
-          if (document.body) document.body.focus();
-        }, 0);
-      }, true);
+      document.addEventListener("keydown", home, true);
+      document.addEventListener("keyup", home, true);
+      window.setInterval(releaseVideo, 200);
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#30271f">
   <title>cxmx</title>
-  <link rel="icon" href="favicon.svg?v=2" type="image/svg+xml">
-  <link rel="icon" href="favicon.ico?v=2" sizes="32x32">
+  <link rel="icon" href="favicon.svg?v=3" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico?v=3" sizes="32x32">
   <link rel="stylesheet" href="site.css">
   <script src="device.js"></script>
 </head>
@@ -70,8 +77,11 @@
       var video = document.createElement("video");
       video.controls = true;
       video.playsInline = true;
-      video.preload = "metadata";
+      video.preload = "none";
+      video.tabIndex = -1;
       video.src = reel.src;
+      video.addEventListener("keydown", window.reelHome, true);
+      video.addEventListener("keyup", window.reelHome, true);
       item.appendChild(title);
       item.appendChild(video);
       list.appendChild(item);
