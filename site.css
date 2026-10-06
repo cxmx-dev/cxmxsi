@@ -138,6 +138,16 @@ body {
   outline: none;
 }
 
+.paper-search__input::placeholder {
+  color: #342f28;
+  opacity: 1;
+}
+
+.paper-search__input:focus::placeholder {
+  color: transparent;
+  opacity: 0;
+}
+
 .paper-search__input::-webkit-search-cancel-button {
   display: none;
 }
