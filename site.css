@@ -46,6 +46,29 @@ body {
   pointer-events: none;
 }
 
+.typewriter-key {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  color: transparent;
+  text-decoration: none;
+}
+
+.typewriter-key--v {
+  left: 56.4%;
+  top: 76.6%;
+  width: 5.2%;
+  height: 7%;
+}
+
+.typewriter-key:focus-visible {
+  outline: 2px solid #8b4333;
+  outline-offset: 2px;
+}
+
 .paper-search {
   position: absolute;
   top: 8.2%;
@@ -118,8 +141,15 @@ body {
   display: none;
 }
 
-.paper-search__hint {
+.paper-search__hint,
+.paper-search__note {
   line-height: normal;
+}
+
+.paper-search__note {
+  margin: 0;
+  color: #8b4333;
+  font-size: calc(var(--stage-width) * 0.009028);
 }
 
 .paper-search__go {
@@ -155,4 +185,82 @@ body {
 .device-phone .typewriter-viewport {
   --stage-width: max(100vw, 160vh);
   --stage-height: max(100dvh, 62.5vw);
+}
+
+.reel {
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  padding:
+    calc(1.5rem + var(--safe-top))
+    calc(1.25rem + var(--safe-right))
+    calc(1.5rem + var(--safe-bottom))
+    calc(1.25rem + var(--safe-left));
+  background:
+    linear-gradient(180deg, rgba(48, 39, 31, 0.2), rgba(48, 39, 31, 0.55)),
+    url("assets/typewriter.png") center / cover no-repeat,
+    #30271f;
+}
+
+.reel-sheet {
+  width: min(40rem, 100%);
+  margin-top: 8vh;
+  padding: 1.5rem 1.35rem 1.25rem;
+  background: rgba(236, 226, 206, 0.92);
+  color: #342f28;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+.reel-sheet__letterhead {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8rem;
+}
+
+.reel-sheet__letterhead p {
+  margin: 0;
+}
+
+.reel-sheet__letterhead p:last-child {
+  color: #837665;
+}
+
+.reel-sheet__rule {
+  height: 1px;
+  margin: 0.8rem 0 1.1rem;
+  background: #837665;
+  opacity: 0.45;
+}
+
+.reel-empty {
+  margin: 0 0 1.5rem;
+  font-size: 1.35rem;
+  line-height: 1.35;
+}
+
+.reel-item {
+  margin: 0 0 1.5rem;
+}
+
+.reel-item figcaption {
+  margin-bottom: 0.45rem;
+}
+
+.reel-item video {
+  display: block;
+  width: 100%;
+  background: #1b1612;
+}
+
+.reel-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: #8b4333;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
 }

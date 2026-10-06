@@ -18,7 +18,8 @@
         src="assets/typewriter.png"
         alt="A vintage typewriter on a wooden writing desk"
       >
-      <form class="paper-search" role="search" action="#">
+      <a class="typewriter-key typewriter-key--v" href="videos.html" aria-label="Videos">V</a>
+      <form class="paper-search" role="search" action="videos.html">
         <header class="paper-search__letterhead">
           <p>THE SEARCH ROOM</p>
           <p class="paper-search__number">No. 001</p>
@@ -37,14 +38,23 @@
             enterkeyhint="search"
           >
           <p class="paper-search__hint">Press return to search.</p>
+          <p class="paper-search__note" hidden>Nothing filed under that.</p>
           <button class="paper-search__go" type="submit">Search</button>
         </div>
       </form>
     </div>
   </main>
   <script>
+    var videoWords = { vid: 1, vids: 1, video: 1, videos: 1 };
+
     document.querySelector(".paper-search").addEventListener("submit", function (event) {
+      var note = document.querySelector(".paper-search__note");
+      if (note) note.hidden = true;
+      var query = document.getElementById("search-query").value.trim().toLowerCase();
+      query = query.replace(/[.!?,]+$/, "");
+      if (videoWords[query]) return;
       event.preventDefault();
+      if (note) note.hidden = false;
     });
   </script>
 </body>
