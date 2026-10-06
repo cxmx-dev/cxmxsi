@@ -21,6 +21,14 @@
       }
       window.addEventListener("keydown", home, true);
       window.addEventListener("keyup", home, true);
+      document.addEventListener("focusin", function (event) {
+        var target = event.target;
+        if (!target || target.tagName !== "VIDEO") return;
+        window.setTimeout(function () {
+          target.blur();
+          if (document.body) document.body.focus();
+        }, 0);
+      }, true);
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -31,7 +39,7 @@
   <link rel="stylesheet" href="site.css">
   <script src="device.js"></script>
 </head>
-<body>
+<body tabindex="-1">
   <main class="reel">
     <article class="reel-sheet">
       <header class="reel-sheet__letterhead">
