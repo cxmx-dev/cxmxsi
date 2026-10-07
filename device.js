@@ -224,6 +224,20 @@
     };
   }
 
+  function outsideReturnsHome() {
+    var reel = document.querySelector(".reel");
+    var back = document.querySelector(".reel-back");
+    if (!reel || !back) return;
+    var downOutside = false;
+    reel.addEventListener("pointerdown", function (event) {
+      downOutside = !event.target.closest(".reel-sheet");
+    });
+    reel.addEventListener("click", function (event) {
+      if (!downOutside || event.target.closest(".reel-sheet")) return;
+      back.click();
+    });
+  }
+
   apply();
   window.addEventListener("resize", apply);
   window.addEventListener("orientationchange", apply);
@@ -231,10 +245,15 @@
     window.visualViewport.addEventListener("resize", apply);
     window.visualViewport.addEventListener("scroll", apply);
   }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", fitTypewriter);
-  } else {
+  function onReady() {
     fitTypewriter();
+    outsideReturnsHome();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", onReady);
+  } else {
+    onReady();
   }
 
   window.DeviceProfile = { apply: apply, fit: fitTypewriter };

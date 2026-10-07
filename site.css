@@ -252,6 +252,7 @@ html:has(.typewriter-viewport) body {
   min-height: 100dvh;
   display: flex;
   justify-content: center;
+  cursor: pointer;
   padding:
     calc(1.5rem + var(--safe-top))
     calc(1.25rem + var(--safe-right))
@@ -266,6 +267,7 @@ html:has(.typewriter-viewport) body {
 .reel-sheet {
   width: 100%;
   margin-top: 4vh;
+  cursor: auto;
   padding: 1.5rem 1.35rem 1.25rem;
   background: rgba(236, 226, 206, 0.92);
   color: #342f28;

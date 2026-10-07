@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#30271f">
   <title>cxmx</title>
   <link rel="icon" href="favicon.ico?v=4" sizes="48x48">
-  <link rel="stylesheet" href="site.css?v=9">
-  <script src="device.js?v=8"></script>
+  <link rel="stylesheet" href="site.css?v=10">
+  <script src="device.js?v=10"></script>
 </head>
 <body>
   <main class="typewriter-viewport">
@@ -18,9 +18,9 @@
         src="assets/typewriter.png"
         alt="A vintage typewriter on a wooden writing desk"
       >
-      <a class="typewriter-key typewriter-key--g" data-key="g" href="games.html?v=4" aria-label="Games">G</a>
-      <a class="typewriter-key typewriter-key--v" data-key="v" href="videos.html?v=8" aria-label="Videos">V</a>
-      <form class="paper-search" role="search" action="videos.html?v=8">
+      <a class="typewriter-key typewriter-key--g" data-key="g" href="games.html?v=5" aria-label="Games">G</a>
+      <a class="typewriter-key typewriter-key--v" data-key="v" href="videos.html?v=9" aria-label="Videos">V</a>
+      <form class="paper-search" role="search" action="videos.html?v=9">
         <header class="paper-search__letterhead">
           <p>THE SEARCH ROOM</p>
           <p class="paper-search__number">No. 001</p>
@@ -45,8 +45,8 @@
       </form>
     </div>
     <nav class="typewriter-fallback" aria-label="Sections">
-      <a href="games.html?v=4">Games</a>
-      <a href="videos.html?v=8">Videos</a>
+      <a href="games.html?v=5">Games</a>
+      <a href="videos.html?v=9">Videos</a>
     </nav>
   </main>
   <script src="typewriter.js"></script>
@@ -61,12 +61,12 @@
       query = query.replace(/[.!?,]+$/, "");
       if (videoWords[query]) {
         event.preventDefault();
-        window.location.href = "videos.html?v=8";
+        window.location.href = "videos.html?v=9";
         return;
       }
       if (gameWords[query]) {
         event.preventDefault();
-        window.location.href = "games.html?v=4";
+        window.location.href = "games.html?v=5";
         return;
       }
       event.preventDefault();
