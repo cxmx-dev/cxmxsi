@@ -198,11 +198,12 @@ html:has(.typewriter-viewport) body {
 
 .paper-search__go {
   display: none;
+  position: relative;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 33px;
+  height: 33px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -211,9 +212,15 @@ html:has(.typewriter-viewport) body {
   cursor: pointer;
 }
 
+.paper-search__go::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
 .paper-search__go svg {
-  width: 1.35rem;
-  height: 1.35rem;
+  width: 1.0125rem;
+  height: 1.0125rem;
 }
 
 .input-touch .paper-search__go {
