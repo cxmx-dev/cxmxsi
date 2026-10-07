@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#30271f">
+  <title>cxmx d2</title>
+  <link rel="icon" href="favicon.ico?v=4" sizes="48x48">
+  <link rel="stylesheet" href="sheet.css">
+  <script src="device.desk.js"></script>
+</head>
+<body>
+  <main class="typewriter-viewport">
+    <img class="typewriter-fill" src="assets/typewriter.png" alt="" aria-hidden="true">
+    <div class="typewriter-stage">
+      <img
+        class="typewriter-photo"
+        src="assets/typewriter.png"
+        alt="A vintage typewriter on a wooden writing desk"
+      >
+      <a class="typewriter-key typewriter-key--g" data-key="g" href="games.html?v=5" aria-label="Games">G</a>
+      <a class="typewriter-key typewriter-key--v" data-key="v" href="videos.html?v=9" aria-label="Videos">V</a>
+      <form class="paper-search" role="search" action="videos.html?v=9">
+        <header class="paper-search__letterhead">
+          <p>cxmx</p>
+          <p class="paper-search__number">No. 013</p>
+        </header>
+        <div class="paper-search__rule"></div>
+        <div class="paper-search__entry">
+          <label class="paper-search__prompt" for="search-query">What you need?</label>
+          <div class="paper-search__line">
+            <input
+              class="paper-search__input"
+              id="search-query"
+              name="query"
+              type="search"
+              placeholder="type &quot;vid&quot;/&quot;video&quot; for example here"
+              autocomplete="off"
+              spellcheck="false"
+              enterkeyhint="search"
+            >
+            <button class="paper-search__go" type="submit" aria-label="Search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10" cy="10" r="6.25" fill="none" stroke="currentColor" stroke-width="2.25"></circle>
+                <path d="M14.8 14.8 L21 21" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"></path>
+              </svg>
+            </button>
+          </div>
+          <p class="paper-search__note" hidden>Nothing filed under that.</p>
+        </div>
+      </form>
+    </div>
+    <nav class="typewriter-fallback" aria-label="Sections">
+      <a href="games.html?v=5">Games</a>
+      <a href="videos.html?v=9">Videos</a>
+    </nav>
+  </main>
+  <script src="typewriter.desk.js"></script>
+  <script>
+    var videoWords = { vid: 1, vids: 1, video: 1, videos: 1 };
+    var gameWords = { games: 1 };
+
+    document.querySelector(".paper-search").addEventListener("submit", function (event) {
+      var note = document.querySelector(".paper-search__note");
+      if (note) note.hidden = true;
+      var query = document.getElementById("search-query").value.trim().toLowerCase();
+      query = query.replace(/[.!?,]+$/, "");
+      if (videoWords[query]) {
+        event.preventDefault();
+        window.location.href = "videos.html?v=9";
+        return;
+      }
+      if (gameWords[query]) {
+        event.preventDefault();
+        window.location.href = "games.html?v=5";
+        return;
+      }
+      event.preventDefault();
+      if (note) note.hidden = false;
+    });
+  </script>
+</body>
+</html>

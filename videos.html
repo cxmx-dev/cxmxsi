@@ -6,7 +6,7 @@
     (function () {
       var nav = performance.getEntriesByType("navigation")[0];
       if (nav && nav.type === "reload") {
-        location.replace("index.html");
+        location.replace("desk.html");
         return;
       }
       function isEsc(event) {
@@ -47,7 +47,7 @@
       <div class="reel-sheet__rule"></div>
       <div class="reel-list" id="reel-list"></div>
       <p class="reel-empty" id="reel-empty">Nothing on the reel yet.</p>
-      <a class="reel-back" href="index.html">Return</a>
+      <a class="reel-back" href="desk.html">Return</a>
     </article>
   </main>
   <script>
