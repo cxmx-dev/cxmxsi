@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#30271f">
   <title>cxmx</title>
   <link rel="icon" href="favicon.ico?v=4" sizes="48x48">
-  <link rel="stylesheet" href="site.css?v=11">
+  <link rel="stylesheet" href="site.css?v=12">
   <script src="device.js?v=10"></script>
 </head>
 <body>
@@ -22,25 +22,31 @@
       <a class="typewriter-key typewriter-key--v" data-key="v" href="videos.html?v=9" aria-label="Videos">V</a>
       <form class="paper-search" role="search" action="videos.html?v=9">
         <header class="paper-search__letterhead">
-          <p>THE SEARCH ROOM</p>
-          <p class="paper-search__number">No. 001</p>
+          <p>cxmx</p>
+          <p class="paper-search__number">No. 013</p>
         </header>
         <div class="paper-search__rule"></div>
         <div class="paper-search__entry">
-          <label class="paper-search__prompt" for="search-query">What are you looking for?</label>
-          <input
-            class="paper-search__input"
-            id="search-query"
-            name="query"
-            type="search"
-            placeholder="type vid/video for example"
-            autocomplete="off"
-            spellcheck="false"
-            enterkeyhint="search"
-          >
-          <p class="paper-search__hint">Press return to search.</p>
+          <label class="paper-search__prompt" for="search-query">What you need?</label>
+          <div class="paper-search__line">
+            <input
+              class="paper-search__input"
+              id="search-query"
+              name="query"
+              type="search"
+              placeholder="type vid/video for example"
+              autocomplete="off"
+              spellcheck="false"
+              enterkeyhint="search"
+            >
+            <button class="paper-search__go" type="submit" aria-label="Search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10" cy="10" r="6.25" fill="none" stroke="currentColor" stroke-width="2.25"></circle>
+                <path d="M14.8 14.8 L21 21" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"></path>
+              </svg>
+            </button>
+          </div>
           <p class="paper-search__note" hidden>Nothing filed under that.</p>
-          <button class="paper-search__go" type="submit">Search</button>
         </div>
       </form>
     </div>
