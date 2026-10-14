@@ -39,7 +39,7 @@
     var MOUTH_HALF = 0.22;
     var MOUTH_LIP = 0.22;
     var MOUTH_DEEP = 0.2;
-    var LIFE_EVERY = 12;
+    var LIFE_EVERY = 6;
     var LIFE_CAP = 6;
     var pumpGfx = null;
 
@@ -268,10 +268,6 @@
             break;
         }
         if (caught === null) return false;
-        var cx = s.paddleX + OPEN_W * 0.5;
-        s.gulpAim = clamp((caught - cx) / (OPEN_W * MOUTH_HALF), -1, 1);
-        s.gulpVx = s.paddleVx || 0;
-        s.gulp = 0.26;
         s.ballX = -80;
         s.ballY = -80;
         s.ballSpeedX = 0;
@@ -885,7 +881,16 @@
         }
 
         var swallowed = !s.over && swallowHole(s, prevX, prevY);
-        if (swallowed) events.push('gulp');
+        if (swallowed) {
+            s.lives -= 1;
+            if (s.lives <= 0) {
+                s.over = true;
+                events.push('lose');
+            } else {
+                events.push('life');
+                serve(s);
+            }
+        }
         if (pumpGfx) {
             if (!s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.top, bellyLeft(s.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH, false)) events.push('bounce');
             if (!s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.bottom, s.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh, false)) events.push('bounce');
@@ -1066,13 +1071,82 @@
             if (items.length) focusItem(items[0]);
         }
 
+        var TILT_FULL = 15;
+        var TILT_DEAD = 1.25;
+        var tiltTarget = 0;
+        var tiltAxis = 0;
+        var tiltBound = false;
+
+        function isPhone() {
+            return !!(window.DEVICE && DEVICE.profile && DEVICE.profile.form === 'phone');
+        }
+
+        function screenRoll(e) {
+            if (e.gamma == null && e.beta == null) return null;
+            var orient = 0;
+            try {
+                if (screen.orientation && typeof screen.orientation.angle === 'number') orient = screen.orientation.angle;
+                else if (typeof window.orientation === 'number') orient = window.orientation;
+            } catch (err) { orient = 0; }
+            var g = typeof e.gamma === 'number' ? e.gamma : 0;
+            var b = typeof e.beta === 'number' ? e.beta : 0;
+            if (orient === 90) return b;
+            if (orient === -90 || orient === 270) return -b;
+            if (orient === 180) return -g;
+            return g;
+        }
+
+        function onTilt(e) {
+            if (!isPhone()) {
+                tiltTarget = 0;
+                return;
+            }
+            var roll = screenRoll(e);
+            if (roll == null || isNaN(roll)) return;
+            var mag = Math.abs(roll);
+            if (mag <= TILT_DEAD) {
+                tiltTarget = 0;
+                return;
+            }
+            var speed = (mag - TILT_DEAD) / (TILT_FULL - TILT_DEAD);
+            if (speed > 1) speed = 1;
+            tiltTarget = roll < 0 ? -speed : speed;
+        }
+
+        function bindTilt() {
+            if (tiltBound) return;
+            tiltBound = true;
+            window.addEventListener('deviceorientation', onTilt);
+        }
+
+        function enableTilt() {
+            if (!isPhone()) return;
+            var Sensor = window.DeviceOrientationEvent;
+            if (Sensor && typeof Sensor.requestPermission === 'function') {
+                var pending = null;
+                try { pending = Sensor.requestPermission(); } catch (err) { pending = null; }
+                if (pending && pending.then) {
+                    pending.then(function (state) {
+                        if (state === 'granted') bindTilt();
+                    }).catch(function () {});
+                    return;
+                }
+            }
+            bindTilt();
+        }
+
         function readInput() {
             var pointer = !!aim && (aimHeld || aimFresh);
             aimFresh = false;
+            if (!isPhone()) tiltTarget = 0;
+            tiltAxis += (tiltTarget - tiltAxis) * 0.4;
+            if (Math.abs(tiltAxis) < 0.02) tiltAxis = 0;
+            var stick = padAxes.x;
+            if (!stick && isPhone() && !aimHeld) stick = tiltAxis;
             return {
                 left: !!keys.a || !!keys.arrowleft,
                 right: !!keys.d || !!keys.arrowright,
-                stickX: padAxes.x,
+                stickX: stick,
                 aim: pointer,
                 aimX: pointer ? aim.x : 0
             };
@@ -1471,6 +1545,7 @@
         }
 
         function startGame() {
+            enableTilt();
             unlockAudio();
             tone(600, 0.1, 'triangle', 0.3);
             state = create();
@@ -1815,6 +1890,8 @@
         window.addEventListener('blur', function () {
             for (var k in keys) keys[k] = false;
             padAxes.x = 0;
+            tiltTarget = 0;
+            tiltAxis = 0;
             prevBtn = [];
         });
         window.addEventListener('gamepadconnected', function (e) {
