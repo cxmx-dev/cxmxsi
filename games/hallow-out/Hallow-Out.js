@@ -1081,19 +1081,42 @@
             return !!(window.DEVICE && DEVICE.profile && DEVICE.profile.form === 'phone');
         }
 
-        function screenRoll(e) {
-            if (e.gamma == null && e.beta == null) return null;
-            var orient = 0;
+        function screenAngle() {
+            var orient = null;
             try {
                 if (screen.orientation && typeof screen.orientation.angle === 'number') orient = screen.orientation.angle;
                 else if (typeof window.orientation === 'number') orient = window.orientation;
-            } catch (err) { orient = 0; }
+            } catch (err) { orient = null; }
+            if (orient == null || isNaN(orient)) {
+                try {
+                    if (window.matchMedia && window.matchMedia('(orientation: landscape)').matches) orient = 90;
+                    else orient = 0;
+                } catch (err2) { orient = 0; }
+            }
+            return ((orient % 360) + 360) % 360;
+        }
+
+        // Degrees the screen's right edge sits below level. Positive is clockwise
+        // while looking at the screen (right side down). Same zero in portrait and landscape.
+        function rollDegrees(betaDeg, gammaDeg, orientDeg) {
+            var b = (betaDeg || 0) * Math.PI / 180;
+            var g = (gammaDeg || 0) * Math.PI / 180;
+            var gx = Math.sin(g) * Math.cos(b);
+            var gy = -Math.sin(b);
+            var o = (((orientDeg || 0) % 360) + 360) % 360 * Math.PI / 180;
+            var screenX = gx * Math.cos(o) - gy * Math.sin(o);
+            if (screenX > 1) screenX = 1;
+            if (screenX < -1) screenX = -1;
+            return Math.asin(screenX) * 180 / Math.PI;
+        }
+
+        function screenRoll(e) {
+            if (e.gamma == null && e.beta == null) return null;
             var g = typeof e.gamma === 'number' ? e.gamma : 0;
             var b = typeof e.beta === 'number' ? e.beta : 0;
-            if (orient === 90) return b;
-            if (orient === -90 || orient === 270) return -b;
-            if (orient === 180) return -g;
-            return g;
+            var roll = rollDegrees(b, g, screenAngle());
+            if (isNaN(roll)) return null;
+            return roll;
         }
 
         function onTilt(e) {

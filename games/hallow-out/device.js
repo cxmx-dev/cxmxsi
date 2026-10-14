@@ -25,6 +25,10 @@ DEVICE.apply = function () {
         fine = window.matchMedia('(pointer: fine)').matches;
         narrow = window.matchMedia('(max-width: 700px)').matches;
         mid = window.matchMedia('(min-width: 701px) and (max-width: 1100px)').matches;
+        // Short side, so a phone stays a phone when the screen is sideways.
+        // Tablets are wider than 500px on that side.
+        var viewShort = Math.min(window.innerWidth || 0, window.innerHeight || 0);
+        if (viewShort > 0 && viewShort <= 500) narrow = true;
     } catch (err) { /* ignore */ }
 
     var hasTouchPoints = false;
