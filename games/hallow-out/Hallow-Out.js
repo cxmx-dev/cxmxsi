@@ -13,11 +13,11 @@
     var W = 960;
     var H = 540;
     var MAX_DT = 0.05;
-    var CROWN_W = 280;
+    var CROWN_W = 420;
     var BASE_H = 12;
     var SIDE_H = 48;
     var MARGIN = 16;
-    var HANG_Y = 42;
+    var HANG_Y = 44;
     var TOP_DEPTH = 26;
     var PUMPKIN = '#E86A12';
     var NIGHT = '#140810';
@@ -28,9 +28,19 @@
         'ZING!', 'TANG!', 'GOO!', 'STICK!', 'WRAP!', 'NIB!', 'SCARY!', 'TREAT!'
     ];
     var CANDY_COLORS = ['#F6D000', '#F48FB1', '#E10600', '#6B3A1F', '#7A28C8', '#C41E3A', '#F4F4F4', '#E10600', '#D5D8DE'];
-    var PUMP_W = 440;
-    var PUMP_H = 168;
-    var PUMP_DRAW_H = Math.round(CROWN_W * PUMP_H / PUMP_W);
+    var OPEN_W = CROWN_W;
+    var OPEN_H = 198;
+    var BELLY_W = 340;
+    var BELLY_H = 104;
+    var OPEN_SRC_W = 630;
+    var OPEN_SRC_H = 297;
+    var BELLY_SRC_W = 510;
+    var BELLY_SRC_H = 156;
+    var MOUTH_HALF = 0.22;
+    var MOUTH_LIP = 0.22;
+    var MOUTH_DEEP = 0.2;
+    var LIFE_EVERY = 12;
+    var LIFE_CAP = 6;
     var pumpGfx = null;
 
     function clamp(v, lo, hi) {
@@ -165,12 +175,12 @@
     function create() {
         var cols = 9;
         var rows = 5;
-        var pad = 6;
-        var offsetLeft = 36;
-        var brickH = 34;
+        var pad = 4;
+        var offsetLeft = 30;
+        var brickH = 24;
         var stack = rows * brickH + (rows - 1) * pad;
-        var gapTop = HANG_Y + PUMP_DRAW_H;
-        var gapBottom = H - MARGIN - PUMP_DRAW_H;
+        var gapTop = HANG_Y + BELLY_H;
+        var gapBottom = H - OPEN_H - 6;
         var offsetTop = Math.round(gapTop + (gapBottom - gapTop - stack) / 2);
         var brickW = (W - offsetLeft * 2 - (cols - 1) * pad) / cols;
         var bricks = [];
@@ -203,7 +213,12 @@
             ballSpeedX: 0,
             ballSpeedY: 0,
             score: 0,
-            lives: 5,
+            lives: 3,
+            nextLife: LIFE_EVERY,
+            oneUp: 0,
+            gulp: 0,
+            gulpAim: 0,
+            gulpVx: 0,
             hold: 0,
             over: false,
             bursts: []
@@ -213,13 +228,65 @@
     }
 
     function serve(s) {
-        var stack = 5 * (s.brickH + s.pad);
-        s.ballX = s.paddleX + CROWN_W / 2;
-        s.ballY = s.offsetTop + stack + 24;
-        var speed = H * 0.48;
-        s.ballSpeedX = speed * 0.12 * (Math.random() < 0.5 ? 1 : -1);
-        s.ballSpeedY = speed;
-        s.hold = 0.35;
+        s.gulp = 0.32;
+        s.gulpAim = Math.random() < 0.5 ? -0.22 : 0.22;
+        s.gulpVx = 0;
+        s.ballX = -80;
+        s.ballY = -80;
+        s.ballSpeedX = 0;
+        s.ballSpeedY = 0;
+        s.hold = 0.2;
+    }
+
+    function mouthOpen(nx) {
+        var u = (nx - 0.5) / MOUTH_HALF;
+        if (u * u >= 1) return 0;
+        var c = Math.cos(Math.abs(u) * Math.PI * 0.5);
+        if (c < 0.18) return 0;
+        return 0.62 + 0.38 * c;
+    }
+
+    function inHole(s, x, y) {
+        var nx = (x - s.paddleX) / OPEN_W;
+        if (nx <= 0 || nx >= 1) return false;
+        var open = mouthOpen(nx);
+        if (open < 0.28) return false;
+        var lip = bottomPumpY() + OPEN_H * MOUTH_LIP;
+        var cavity = lip + open * OPEN_H * MOUTH_DEEP;
+        return y > lip - s.ballR * 0.15 && y < cavity + s.ballR;
+    }
+
+    function swallowHole(s, prevX, prevY) {
+        var steps = 8;
+        var caught = null;
+        for (var i = 1; i <= steps; i++) {
+            var t = i / steps;
+            var x = prevX + (s.ballX - prevX) * t;
+            var y = prevY + (s.ballY - prevY) * t;
+            if (!inHole(s, x, y)) continue;
+            caught = x;
+            break;
+        }
+        if (caught === null) return false;
+        var cx = s.paddleX + OPEN_W * 0.5;
+        s.gulpAim = clamp((caught - cx) / (OPEN_W * MOUTH_HALF), -1, 1);
+        s.gulpVx = s.paddleVx || 0;
+        s.gulp = 0.26;
+        s.ballX = -80;
+        s.ballY = -80;
+        s.ballSpeedX = 0;
+        s.ballSpeedY = 0;
+        return true;
+    }
+
+    function releaseFromTop(s) {
+        var aim = s.gulpAim || 0;
+        var speed = H * 0.62;
+        s.ballX = clamp(bellyLeft(s.paddleX) + BELLY_W * 0.5 + aim * BELLY_W * 0.16, s.ballR, W - s.ballR);
+        s.ballY = HANG_Y + BELLY_H + s.ballR + 4;
+        s.ballSpeedX = clamp(aim * speed * 0.75 + (s.gulpVx || 0) * 0.35, -speed, speed);
+        s.ballSpeedY = speed * 0.9;
+        s.gulp = 0;
     }
 
     function brickBox(s, c, r) {
@@ -452,14 +519,18 @@
         var r = s.ballR - 0.25;
         if (pumpGfx) {
             return maskOverlaps(pumpGfx.bottom, s.ballX - s.paddleX, s.ballY - bottomPumpY(), pumpGfx.dw, pumpGfx.dh, r) ||
-                maskOverlaps(pumpGfx.top, s.ballX - s.paddleX, s.ballY - HANG_Y, pumpGfx.dw, pumpGfx.dh, r);
+                maskOverlaps(pumpGfx.top, s.ballX - bellyLeft(s.paddleX), s.ballY - HANG_Y, pumpGfx.topW, pumpGfx.topH, r);
         }
         return circleHitsPoly(crownPoints(s.paddleX), s.ballX, s.ballY, r) ||
             circleHitsPoly(topPoints(s.paddleX), s.ballX, s.ballY, r);
     }
 
     function bottomPumpY() {
-        return H - MARGIN - (pumpGfx ? pumpGfx.dh : PUMP_DRAW_H);
+        return H - OPEN_H;
+    }
+
+    function bellyLeft(paddleX) {
+        return paddleX + (OPEN_W - BELLY_W) / 2;
     }
 
     function setPx(data, w, x, y, r, g, b) {
@@ -481,44 +552,83 @@
         return { w: w, h: h, data: data, canvas: canvas };
     }
 
+    function shadePumpkin(lobe, light) {
+        return [
+            Math.max(0, Math.min(255, Math.round(226 * lobe * light))),
+            Math.max(0, Math.min(255, Math.round(96 * lobe * light))),
+            Math.max(0, Math.min(255, Math.round(18 * lobe * light)))
+        ];
+    }
+
     function paintOpenTop(g, w, h) {
         var img = g.createImageData(w, h);
         var d = img.data;
-        for (var x = 0; x < w; x++) {
-            var nx = (x + 0.5) / w;
-            var side = Math.sin(nx * Math.PI);
-            if (side < 0.04) continue;
-            var lobe = 0.68 + 0.32 * Math.pow(Math.sin(nx * Math.PI * 5), 2);
-            var top = 5 + (1 - side) * 28 + (1 - lobe) * 14;
-            var bot = h - 18 - (1 - side) * 26;
-            var u = (nx - 0.5) / 0.33;
-            var mouth = u * u < 1 ? Math.pow(Math.cos(Math.abs(u) * Math.PI * 0.5), 1.15) : 0;
-            var floor = top + 18 + mouth * 70;
-            var open = mouth > 0.62;
-            var y0 = Math.max(0, Math.floor(open ? floor : top));
-            var y1 = Math.min(h - 1, Math.ceil(bot));
-            for (var y = y0; y <= y1; y++) {
-                var span = Math.max(1, bot - top);
-                var ny = (y - top) / span;
-                var light = ny < 0.16 ? 1.18 : (ny > 0.82 ? 0.74 : 1);
-                if (open && y < floor + 10) light *= 0.48;
-                var rib = 0.72 + 0.28 * lobe;
-                setPx(
-                    d, w, x, y,
-                    Math.max(0, Math.min(255, Math.round(228 * rib * light))),
-                    Math.max(0, Math.min(255, Math.round(98 * rib * light))),
-                    Math.max(0, Math.min(255, Math.round(16 * rib * light)))
-                );
+        var bodyX = w * 0.5;
+        var bodyY = h * 0.64;
+        var bodyRx = w * 0.48;
+        var bodyRy = h * 0.38;
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var nx = (x + 0.5) / w;
+                var bx = (x + 0.5 - bodyX) / bodyRx;
+                var by = (y + 0.5 - bodyY) / bodyRy;
+                if (bx * bx + by * by > 1) continue;
+                var open = mouthOpen(nx);
+                var lip = h * MOUTH_LIP;
+                var cavity = lip + open * h * MOUTH_DEEP;
+                if (open > 0.22 && y + 0.5 < cavity) continue;
+                var lobe = 0.72 + 0.28 * Math.pow(Math.sin(nx * Math.PI * 6), 2);
+                var ny = (y + 0.5) / h;
+                var light = ny < 0.34 ? 1.18 : (ny > 0.84 ? 0.74 : 1);
+                if (open > 0.22 && y < cavity + h * 0.04) light *= 0.62;
+                var rgb = shadePumpkin(lobe, light);
+                setPx(d, w, x, y, rgb[0], rgb[1], rgb[2]);
             }
-            if (nx > 0.455 && nx < 0.545) {
-                var stemT = Math.abs(nx - 0.5) / 0.045;
-                var stemTop = Math.floor(bot - 6);
-                var stemBot = h - 3;
-                for (var sy = stemTop; sy <= stemBot; sy++) {
-                    if (sy < 0 || sy >= h) continue;
-                    var sg = stemT > 0.72 ? 46 : 98;
-                    setPx(d, w, x, sy, 34, sg, 26);
-                }
+        }
+        g.putImageData(img, 0, 0);
+        g.save();
+        g.globalCompositeOperation = 'source-atop';
+        g.lineCap = 'round';
+        g.strokeStyle = '#140804';
+        g.lineWidth = Math.max(5, w * 0.01);
+        var roots = [0.16, 0.3, 0.7, 0.84];
+        var bows = [-0.08, -0.04, 0.04, 0.08];
+        for (var i = 0; i < roots.length; i++) {
+            var x0 = roots[i] * w;
+            var bow = bows[i] * w;
+            g.beginPath();
+            g.moveTo(x0, h * 0.42);
+            g.quadraticCurveTo(x0 + bow, h * 0.7, x0 + bow * 0.2, h * 0.92);
+            g.stroke();
+        }
+        g.restore();
+    }
+
+    function paintMouth(g, w, h) {
+        var img = g.getImageData(0, 0, w, h);
+        var d = img.data;
+        var bodyX = w * 0.5;
+        var bodyY = h * 0.64;
+        var bodyRx = w * 0.48;
+        var bodyRy = h * 0.38;
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var nx = (x + 0.5) / w;
+                var open = mouthOpen(nx);
+                if (open < 0.22) continue;
+                var bx = (x + 0.5 - bodyX) / bodyRx;
+                var by = (y + 0.5 - bodyY) / bodyRy;
+                if (bx * bx + by * by > 1) continue;
+                var lip = h * MOUTH_LIP;
+                var cavity = lip + open * h * MOUTH_DEEP;
+                if (y + 0.5 < lip - 2 || y + 0.5 > cavity + h * 0.03) continue;
+                var i = (y * w + x) * 4;
+                if (d[i + 3] > 40) continue;
+                var shade = 28 + Math.round((1 - open) * 24);
+                d[i] = shade;
+                d[i + 1] = 10;
+                d[i + 2] = 6;
+                d[i + 3] = 255;
             }
         }
         g.putImageData(img, 0, 0);
@@ -527,58 +637,68 @@
     function paintBelly(g, w, h) {
         var img = g.createImageData(w, h);
         var d = img.data;
-        var lowY = 0;
-        var lowX = (w / 2) | 0;
-        for (var x = 0; x < w; x++) {
-            var nx = (x + 0.5) / w;
-            var side = Math.sin(nx * Math.PI);
-            if (side < 0.035) continue;
-            var lobe = 0.86 + 0.14 * Math.pow(Math.sin(nx * Math.PI * 5), 2);
-            var top = 2 + (1 - side) * 4;
-            var bot = 12 + Math.pow(side, 0.6) * lobe * (h - 24);
-            if (bot > lowY) {
-                lowY = bot;
-                lowX = x;
-            }
-            var y0 = Math.max(0, Math.floor(top));
-            var y1 = Math.min(h - 1, Math.ceil(bot));
-            for (var y = y0; y <= y1; y++) {
-                var ny = (y - top) / Math.max(1, bot - top);
-                var light = ny < 0.1 ? 1.35 : (ny > 0.82 ? 0.68 : 0.94);
-                var rib = 0.42 + 0.58 * lobe;
-                setPx(
-                    d, w, x, y,
-                    Math.max(0, Math.min(255, Math.round(214 * rib * light))),
-                    Math.max(0, Math.min(255, Math.round(86 * rib * light))),
-                    Math.max(0, Math.min(255, Math.round(14 * rib * light)))
-                );
+        var bodyX = w * 0.5;
+        var bodyY = h * 0.08;
+        var bodyRx = w * 0.48;
+        var bodyRy = h * 0.9;
+        for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+                var bx = (x + 0.5 - bodyX) / bodyRx;
+                var by = (y + 0.5 - bodyY) / bodyRy;
+                if (by < 0 || bx * bx + by * by > 1) continue;
+                var nx = (x + 0.5) / w;
+                var lobe = 0.58 + 0.42 * Math.pow(Math.sin(nx * Math.PI * 5), 2);
+                var ny = (y + 0.5) / h;
+                var light = ny < 0.2 ? 1.25 : (ny > 0.78 ? 0.72 : 0.96);
+                var rgb = shadePumpkin(lobe, light);
+                setPx(d, w, x, y, rgb[0], rgb[1], rgb[2]);
             }
         }
-        for (var by = -11; by <= 4; by++) {
-            for (var bx = -10; bx <= 10; bx++) {
-                var blossom = (bx * bx) / 70 + (by * by) / 28;
-                if (blossom > 1) continue;
-                setPx(d, w, lowX + bx, Math.round(lowY) - 8 + by, by > 1 ? 70 : 120, 48, 16);
+        var lowX = (w / 2) | 0;
+        var lowY = Math.round(bodyY + bodyRy) - 8;
+        for (var py = -10; py <= 4; py++) {
+            for (var px = -9; px <= 9; px++) {
+                if ((px * px) / 55 + (py * py) / 22 > 1) continue;
+                setPx(d, w, lowX + px, lowY + py, py > 0 ? 70 : 120, 42, 14);
             }
         }
         g.putImageData(img, 0, 0);
+        g.save();
+        g.globalCompositeOperation = 'source-atop';
+        g.lineCap = 'round';
+        g.strokeStyle = '#1a0a06';
+        g.lineWidth = Math.max(5, w * 0.012);
+        var grooves = [0.22, 0.36, 0.5, 0.64, 0.78];
+        for (var i = 0; i < grooves.length; i++) {
+            var gx = grooves[i] * w;
+            var bow = (grooves[i] - 0.5) * w * 0.18;
+            g.beginPath();
+            g.moveTo(gx, h * 0.06);
+            g.quadraticCurveTo(gx + bow, h * 0.5, gx + bow * 0.15, h * 0.86);
+            g.stroke();
+        }
+        g.restore();
     }
 
     function buildPumpkin() {
         if (typeof document === 'undefined') return;
         var open = document.createElement('canvas');
         var belly = document.createElement('canvas');
-        open.width = PUMP_W;
-        open.height = PUMP_H;
-        belly.width = PUMP_W;
-        belly.height = PUMP_H;
-        paintOpenTop(open.getContext('2d'), PUMP_W, PUMP_H);
-        paintBelly(belly.getContext('2d'), PUMP_W, PUMP_H);
+        open.width = OPEN_SRC_W;
+        open.height = OPEN_SRC_H;
+        belly.width = BELLY_SRC_W;
+        belly.height = BELLY_SRC_H;
+        paintOpenTop(open.getContext('2d'), OPEN_SRC_W, OPEN_SRC_H);
+        paintBelly(belly.getContext('2d'), BELLY_SRC_W, BELLY_SRC_H);
+        var openMask = maskFromCanvas(open);
+        paintMouth(open.getContext('2d'), OPEN_SRC_W, OPEN_SRC_H);
         pumpGfx = {
-            bottom: maskFromCanvas(open),
+            bottom: openMask,
             top: maskFromCanvas(belly),
-            dw: CROWN_W,
-            dh: PUMP_DRAW_H
+            dw: OPEN_W,
+            dh: OPEN_H,
+            topW: BELLY_W,
+            topH: BELLY_H
         };
     }
 
@@ -686,6 +806,7 @@
         input = input || {};
         dt = Math.min(MAX_DT, Math.max(0, dt));
         tickBursts(s, dt);
+        if (s.oneUp > 0) s.oneUp = Math.max(0, s.oneUp - dt);
         var travel = W * 0.78;
         if (input.aim && !input.stickX) s.paddleX = input.aimX - CROWN_W / 2;
         var xMove = controlAxis(input.left, input.right, input.stickX);
@@ -698,7 +819,19 @@
 
         if (s.hold > 0) {
             s.hold -= dt;
-            s.ballX = s.paddleX + CROWN_W / 2;
+            s.ballX = -80;
+            s.ballY = -80;
+            return events;
+        }
+        if (s.gulp > 0) {
+            s.gulp -= dt;
+            s.ballX = -80;
+            s.ballY = -80;
+            s.ballSpeedX = 0;
+            s.ballSpeedY = 0;
+            if (s.gulp > 0) return events;
+            releaseFromTop(s);
+            events.push('drop');
             return events;
         }
 
@@ -732,6 +865,14 @@
                 if (!resolveBrick(s, box)) continue;
                 brick.status = 0;
                 s.score += 1;
+                if (s.score >= s.nextLife) {
+                    s.nextLife += LIFE_EVERY;
+                    if (s.lives < LIFE_CAP) {
+                        s.lives += 1;
+                        s.oneUp = 0.9;
+                        events.push('extra');
+                    }
+                }
                 spawnBurst(s, box, brick);
                 events.push('brick');
                 hit = true;
@@ -743,20 +884,21 @@
             }
         }
 
+        var swallowed = !s.over && swallowHole(s, prevX, prevY);
+        if (swallowed) events.push('gulp');
         if (pumpGfx) {
-            var dh = pumpGfx.dh;
-            if (!s.over && hitMask(s, prevX, prevY, pumpGfx.top, s.paddleX, HANG_Y, pumpGfx.dw, dh, false)) events.push('bounce');
-            if (!s.over && hitMask(s, prevX, prevY, pumpGfx.bottom, s.paddleX, bottomPumpY(), pumpGfx.dw, dh, true)) events.push('paddle');
+            if (!s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.top, bellyLeft(s.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH, false)) events.push('bounce');
+            if (!s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.bottom, s.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh, false)) events.push('bounce');
         } else {
             if (!s.over && hitCrown(s, prevX, prevY, topPoints(s.paddleX), false)) events.push('bounce');
             if (!s.over && hitCrown(s, prevX, prevY, crownPoints(s.paddleX), true)) events.push('paddle');
         }
-        if (s.ballY - r < HANG_Y) {
+        if (!(s.gulp > 0) && s.ballY - r < HANG_Y) {
             s.ballY = HANG_Y + r;
             if (s.ballSpeedY < 0) s.ballSpeedY = Math.abs(s.ballSpeedY);
         }
 
-        if (!s.over && s.ballY - r > H) {
+        if (!s.over && !(s.gulp > 0) && s.ballY - r > H) {
             s.lives -= 1;
             if (s.lives <= 0) {
                 s.over = true;
@@ -848,6 +990,9 @@
             if (name === 'bounce') tone(800, 0.05, 'square', 0.2);
             else if (name === 'paddle') tone(400, 0.08, 'sawtooth', 0.4);
             else if (name === 'brick') tone(1000, 0.06, 'square', 0.3);
+            else if (name === 'gulp') tone(180, 0.08, 'triangle', 0.35);
+            else if (name === 'drop') tone(520, 0.06, 'square', 0.25);
+            else if (name === 'extra') tone(880, 0.08, 'square', 0.35);
             else if (name === 'life' || name === 'lose') tone(150, 0.2, 'sine', 0.5);
             else if (name === 'win') {
                 tone(523, 0.2, 'sine', 0.4);
@@ -989,33 +1134,35 @@
                 ctx.quadraticCurveTo(0, 0, w * 0.08, h * 0.16);
                 ctx.stroke();
             } else if (kind === 'pop') {
-                ctx.strokeStyle = '#fff';
+                ctx.strokeStyle = '#f2efe6';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
-                ctx.moveTo(0, h * 0.02);
-                ctx.lineTo(0, h * 0.28);
+                ctx.moveTo(0, -h * 0.02);
+                ctx.lineTo(0, h * 0.42);
                 ctx.stroke();
                 ctx.fillStyle = '#E10600';
                 ctx.strokeStyle = '#111';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.arc(0, -h * 0.08, h * 0.34, 0, Math.PI * 2);
+                ctx.arc(0, -h * 0.12, Math.min(w, h) * 0.28, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
-                ctx.strokeStyle = '#fff';
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
                 ctx.beginPath();
-                ctx.arc(0, -h * 0.08, h * 0.18, Math.PI * 0.8, Math.PI * 1.7);
-                ctx.stroke();
+                ctx.ellipse(-w * 0.05, -h * 0.2, w * 0.04, h * 0.07, -0.6, 0, Math.PI * 2);
+                ctx.fill();
             } else if (kind === 'bar') {
-                ctx.fillStyle = '#6B3A1F';
-                ctx.fillRect(-w * 0.36, -h * 0.28, w * 0.72, h * 0.56);
-                ctx.strokeRect(-w * 0.36, -h * 0.28, w * 0.72, h * 0.56);
+                ctx.fillStyle = '#5c3317';
+                ctx.fillRect(-w * 0.38, -h * 0.26, w * 0.76, h * 0.52);
+                ctx.strokeRect(-w * 0.38, -h * 0.26, w * 0.76, h * 0.52);
                 ctx.beginPath();
-                ctx.moveTo(-w * 0.12, -h * 0.28);
-                ctx.lineTo(-w * 0.12, h * 0.28);
-                ctx.moveTo(w * 0.12, -h * 0.28);
-                ctx.lineTo(w * 0.12, h * 0.28);
+                ctx.moveTo(-w * 0.12, -h * 0.26);
+                ctx.lineTo(-w * 0.12, h * 0.26);
+                ctx.moveTo(w * 0.12, -h * 0.26);
+                ctx.lineTo(w * 0.12, h * 0.26);
                 ctx.stroke();
+                ctx.fillStyle = 'rgba(255,210,150,0.35)';
+                ctx.fillRect(-w * 0.34, -h * 0.2, w * 0.68, h * 0.08);
             } else if (kind === 'drop') {
                 ctx.fillStyle = '#7A28C8';
                 ctx.beginPath();
@@ -1027,22 +1174,27 @@
                 ctx.ellipse(-w * 0.06, -h * 0.08, w * 0.06, h * 0.1, -0.5, 0, Math.PI * 2);
                 ctx.fill();
             } else if (kind === 'apple') {
-                ctx.strokeStyle = '#6B3A1F';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(0, -h * 0.08);
-                ctx.lineTo(0, -h * 0.46);
-                ctx.stroke();
-                ctx.fillStyle = '#C41E3A';
-                ctx.strokeStyle = '#111';
+                ctx.strokeStyle = '#6b3a1f';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.arc(0, h * 0.08, h * 0.32, 0, Math.PI * 2);
+                ctx.moveTo(0, -h * 0.05);
+                ctx.lineTo(w * 0.02, -h * 0.42);
+                ctx.stroke();
+                ctx.fillStyle = '#2f8f3a';
+                ctx.beginPath();
+                ctx.ellipse(w * 0.08, -h * 0.32, w * 0.08, h * 0.07, 0.6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#d0122a';
+                ctx.strokeStyle = '#111';
+                ctx.beginPath();
+                ctx.arc(0, h * 0.06, Math.min(w, h) * 0.3, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
-                ctx.fillStyle = '#E8B15A';
+                ctx.fillStyle = '#e7b15a';
                 ctx.beginPath();
-                ctx.ellipse(0, h * 0.02, w * 0.1, h * 0.08, 0, 0, Math.PI * 2);
+                ctx.moveTo(-w * 0.08, h * 0.02);
+                ctx.quadraticCurveTo(0, h * 0.2, w * 0.1, h * 0.04);
+                ctx.quadraticCurveTo(0, h * 0.1, -w * 0.08, h * 0.02);
                 ctx.fill();
             } else if (kind === 'eye') {
                 ctx.fillStyle = '#F4F4F4';
@@ -1066,44 +1218,35 @@
                 ctx.arc(w * 0.04, 0, h * 0.07, 0, Math.PI * 2);
                 ctx.fill();
             } else if (kind === 'twist') {
-                ctx.lineWidth = 5;
-                ctx.strokeStyle = '#F6D000';
+                ctx.lineCap = 'round';
+                ctx.lineWidth = 4;
                 ctx.beginPath();
-                ctx.moveTo(-w * 0.34, 0);
-                for (var i = 0; i <= 10; i++) {
-                    var t = i / 10;
-                    ctx.lineTo(-w * 0.34 + t * w * 0.68, Math.sin(t * Math.PI * 4) * h * 0.2);
-                }
+                ctx.moveTo(-w * 0.36, h * 0.12);
+                ctx.bezierCurveTo(-w * 0.1, -h * 0.45, w * 0.1, h * 0.45, w * 0.36, -h * 0.12);
+                ctx.strokeStyle = '#f4e7c5';
                 ctx.stroke();
-                ctx.strokeStyle = '#111';
-                ctx.lineWidth = 3;
-                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-w * 0.36, -h * 0.12);
+                ctx.bezierCurveTo(-w * 0.1, h * 0.4, w * 0.1, -h * 0.4, w * 0.36, h * 0.12);
                 ctx.strokeStyle = '#E10600';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(-w * 0.34, 0);
-                for (var j = 0; j <= 10; j++) {
-                    var u = j / 10;
-                    ctx.lineTo(-w * 0.34 + u * w * 0.68, Math.sin(u * Math.PI * 4 + Math.PI) * h * 0.2);
-                }
                 ctx.stroke();
             } else {
-                ctx.fillStyle = '#D5D8DE';
+                ctx.fillStyle = '#e6e8ee';
                 ctx.beginPath();
-                ctx.moveTo(0, -h * 0.42);
-                ctx.bezierCurveTo(w * 0.16, -h * 0.28, w * 0.2, h * 0.05, 0, h * 0.4);
-                ctx.bezierCurveTo(-w * 0.2, h * 0.05, -w * 0.16, -h * 0.28, 0, -h * 0.42);
+                ctx.moveTo(0, -h * 0.08);
+                ctx.bezierCurveTo(w * 0.16, -h * 0.08, w * 0.18, h * 0.16, 0, h * 0.4);
+                ctx.bezierCurveTo(-w * 0.18, h * 0.16, -w * 0.16, -h * 0.08, 0, -h * 0.08);
                 ctx.fill();
                 ctx.stroke();
-                ctx.fillStyle = '#fff';
+                ctx.fillStyle = '#f7f7f7';
                 ctx.beginPath();
-                ctx.ellipse(-w * 0.03, 0, w * 0.03, h * 0.14, -0.6, 0, Math.PI * 2);
+                ctx.ellipse(-w * 0.04, h * 0.08, w * 0.035, h * 0.12, -0.5, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.fillStyle = '#F27B14';
                 ctx.beginPath();
-                ctx.moveTo(0, -h * 0.42);
-                ctx.lineTo(w * 0.14, -h * 0.46);
-                ctx.lineTo(w * 0.05, -h * 0.22);
+                ctx.moveTo(-w * 0.02, -h * 0.08);
+                ctx.lineTo(w * 0.16, -h * 0.42);
+                ctx.lineTo(w * 0.04, -h * 0.02);
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
@@ -1249,30 +1392,40 @@
                 ctx.fill();
             }
             if (pumpGfx) {
-                var dh = pumpGfx.dh;
                 var smooth = ctx.imageSmoothingEnabled;
                 ctx.imageSmoothingEnabled = true;
                 if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(pumpGfx.top.canvas, state.paddleX, HANG_Y, pumpGfx.dw, dh);
-                ctx.drawImage(pumpGfx.bottom.canvas, state.paddleX, H - MARGIN - dh, pumpGfx.dw, dh);
+                ctx.drawImage(pumpGfx.top.canvas, bellyLeft(state.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH);
+                ctx.drawImage(pumpGfx.bottom.canvas, state.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh);
                 ctx.imageSmoothingEnabled = smooth;
             } else {
                 fillPoly(topPoints(state.paddleX), PUMPKIN);
                 fillPoly(crownPoints(state.paddleX), PUMPKIN);
             }
-            ctx.fillStyle = '#FFE7A0';
-            ctx.beginPath();
-            ctx.arc(state.ballX, state.ballY, state.ballR, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(state.ballX - 2, state.ballY - 2, state.ballR * 0.35, 0, Math.PI * 2);
-            ctx.fill();
+            if (!(state.gulp > 0)) {
+                ctx.fillStyle = '#FFE7A0';
+                ctx.beginPath();
+                ctx.arc(state.ballX, state.ballY, state.ballR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(state.ballX - 2, state.ballY - 2, state.ballR * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+            }
             ctx.fillStyle = '#fff';
             ctx.font = '22px "Press Start 2P", monospace';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillText('Lives ' + state.lives, 16, 16);
+            if (state.oneUp > 0) {
+                ctx.globalAlpha = Math.min(1, state.oneUp);
+                ctx.fillStyle = '#F6D000';
+                ctx.font = '14px "Press Start 2P", monospace';
+                ctx.fillText('1UP', 16, 46);
+                ctx.globalAlpha = 1;
+            }
+            ctx.fillStyle = '#fff';
+            ctx.font = '22px "Press Start 2P", monospace';
             ctx.textAlign = 'center';
             ctx.fillText(String(state.score), W / 2, 16);
             if (state.bursts) {
