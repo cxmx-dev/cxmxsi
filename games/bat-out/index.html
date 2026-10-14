@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Bat-Out</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body {
+            height: 100%; background: #000; color: #fff;
+            -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+        }
+        html.hide-cursor, html.hide-cursor * { cursor: none !important; }
+        button.pad-focus {
+            background: #fff; color: #000; outline: 3px solid #fff; outline-offset: 4px;
+        }
+        input.pad-focus { outline: 3px solid #fff; outline-offset: 4px; }
+        body { font-family: "Press Start 2P", ui-monospace, monospace; }
+        #app {
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        #stage { flex: 1; min-height: 0; position: relative; display: grid; place-items: center; }
+        #gameCanvas { image-rendering: pixelated; image-rendering: crisp-edges; touch-action: none; background: #000; }
+        #menu, #pauseMenu, #help, #result {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 12px; padding: 16px; text-align: center; background: #000;
+        }
+        #pauseMenu, #help, #result { background: rgba(0, 0, 0, 0.86); }
+        [hidden] { display: none !important; }
+        h1 { font-size: clamp(22px, 5vw, 42px); line-height: 1.4; }
+        button, .note { font-family: inherit; }
+        button {
+            font-size: clamp(11px, 2.2vw, 15px);
+            min-height: 44px; min-width: 44px; padding: 12px 18px;
+            background: #222; color: #fff; border: 2px solid #fff; cursor: pointer;
+        }
+        .note { font-size: clamp(9px, 1.8vw, 12px); line-height: 1.7; max-width: 38em; }
+        #volumeSlider { width: min(240px, 70vw); height: 44px; }
+        #touch-chrome { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 12px 10px; }
+        #touch-chrome .pad { display: none; gap: 8px; }
+        html.playing #padBreak { display: flex; }
+        #touch-chrome button { min-width: 76px; touch-action: none; }
+        .actions { display: flex; gap: 8px; }
+    </style>
+</head>
+<body data-game="bat" oncontextmenu="return false">
+    <div id="app">
+        <div id="stage">
+            <canvas id="gameCanvas" width="960" height="540"></canvas>
+            <div id="menu">
+                <h1>BAT-OUT</h1>
+                <button type="button" id="btnStart">Start Game</button>
+                <button type="button" id="btnHelp">Instructions</button>
+            </div>
+            <div id="pauseMenu" hidden>
+                <h1>Paused</h1>
+                <button type="button" id="btnResume">Resume</button>
+                <button type="button" id="btnAgain">Start Over</button>
+                <button type="button" id="btnMenu">Main Menu</button>
+                <button type="button" id="btnQuit">Quit</button>
+                <button type="button" id="btnMuteMenu"><span id="muteIcon">Sound</span></button>
+                <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="0.7" aria-label="Volume">
+                <p class="note">The bat is a scoop. Where the ball lands sets the angle. How fast you move adds to the shot. Drag, A D, arrows, or a stick and D-pad. A confirms. B backs out. Start, P, Esc, or Space pauses. M or Y mutes.</p>
+            </div>
+            <div id="help" hidden>
+                <h1>How to play</h1>
+                <p class="note">The logo is cut in half. The ear half is the bottom paddle. The scalloped half hangs from the top. Bricks sit between them. The ball is sent down to the ears, which throw it back up. It cannot pass above the top half. Move as it lands and that speed is added. Drag, or hold A and D or the arrow keys. A stick or D-pad moves it. Five lives. Clear every brick. A confirms. B backs out. Start, P, Esc, or Space pauses. M or Y mutes. On a touch screen, Left, Right, Pause, and Mute sit under the board.</p>
+                <button type="button" id="btnHelpClose">Back</button>
+            </div>
+            <div id="result" hidden>
+                <h1 id="resultText">Done</h1>
+                <button type="button" id="btnResultMenu">Main Menu</button>
+            </div>
+        </div>
+        <div id="touch-chrome" hidden aria-hidden="true">
+            <div class="pad" id="padBreak">
+                <button type="button" data-key="a">Left</button>
+                <button type="button" data-key="d">Right</button>
+            </div>
+            <div class="actions">
+                <button type="button" id="btnPause">Pause</button>
+                <button type="button" id="btnMute">Mute</button>
+            </div>
+        </div>
+    </div>
+    <script src="device.js"></script>
+    <script src="Bat-Out.js?v=12"></script>
+</body>
+</html>
