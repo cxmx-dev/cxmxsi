@@ -704,9 +704,8 @@
             }
             d.ox = 0;
             d.oy = 0;
-            if (d.sink && d.vy > 150) d.vy = 150;
             d.vy += 980 * dt;
-            if (d.sink && d.vy > 150) d.vy = 150;
+            if (d.sink) d.vy = 72;
             if (!d.sink && d.vy > 720) d.vy = 720;
             d.x += d.vx * dt;
             d.y += d.vy * dt;
@@ -1573,7 +1572,7 @@
                 s.inMouth = true;
                 s.ballX = sx;
                 s.ballY = sy;
-                s.ballSpeedY = 120;
+                s.ballSpeedY = 78;
                 s.ballSpeedX *= 0.12;
                 break;
             }
@@ -1918,7 +1917,7 @@
                 openSprite = open;
                 applyOpenArt(open);
             };
-            open.src = 'art/pumpkin-open.png?v=7';
+            open.src = 'art/pumpkin-open.png?v=8';
             var belly = new Image();
             belly.onload = function () {
                 bellySprite = belly;
@@ -1926,11 +1925,11 @@
             };
             belly.src = 'art/moon-bottom.png?v=2';
             var handFiles = [
-                'art/zombie-hand-fist/ghoul-1-emerge.png?v=6',
-                'art/zombie-hand-fist/ghoul-2-reach.png?v=6',
-                'art/zombie-hand-fist/ghoul-3-curl.png?v=6',
-                'art/zombie-hand-fist/ghoul-4-midway.png?v=6',
-                'art/zombie-hand-fist/ghoul-5-fist.png?v=6'
+                'art/zombie-hand-fist/ghoul-1-emerge.png?v=7',
+                'art/zombie-hand-fist/ghoul-2-reach.png?v=7',
+                'art/zombie-hand-fist/ghoul-3-curl.png?v=7',
+                'art/zombie-hand-fist/ghoul-4-midway.png?v=7',
+                'art/zombie-hand-fist/ghoul-5-fist.png?v=7'
             ];
             var hi;
             for (hi = 0; hi < handFiles.length; hi++) {
@@ -2350,36 +2349,46 @@
                 ctx.closePath();
                 ctx.fill();
             }
+            function sinkLook(depth) {
+                var t = clamp(depth, 0, 1);
+                var e = t * t * (3 - 2 * t);
+                return { alpha: 1 - e, scale: 1 - e * 0.62 };
+            }
             function drawBall() {
                 var depth = 0;
                 if (state.inMouth) {
                     var col = mouthColumn(state, state.ballX);
                     if (col) depth = clamp((state.ballY - col.top) / ((col.bot - col.top) || 1), 0, 1);
                 }
+                var look = sinkLook(depth);
+                var rad = Math.max(1.5, state.ballR * look.scale);
                 ctx.save();
-                ctx.globalAlpha = 1 - depth * 0.85;
+                ctx.globalAlpha = look.alpha;
                 ctx.fillStyle = '#FFE7A0';
                 ctx.beginPath();
-                ctx.arc(state.ballX, state.ballY, state.ballR, 0, Math.PI * 2);
+                ctx.arc(state.ballX, state.ballY, rad, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.fillStyle = '#fff';
                 ctx.beginPath();
-                ctx.arc(state.ballX - 2, state.ballY - 2, state.ballR * 0.35, 0, Math.PI * 2);
+                ctx.arc(state.ballX - rad * 0.28, state.ballY - rad * 0.28, rad * 0.35, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             }
             function drawLoose(drop, sinking) {
                 var dropDepth = 0;
                 var scale = 1;
+                var fade = 1;
                 if (sinking && drop.sink) {
                     var dropCol = mouthColumn(state, drop.x);
                     if (dropCol) dropDepth = clamp((drop.y - dropCol.top) / ((dropCol.bot - dropCol.top) || 1), 0, 1);
-                    scale = 0.58;
+                    var look = sinkLook(dropDepth);
+                    scale = look.scale;
+                    fade = look.alpha;
                 }
                 var dw = drop.w * scale;
                 var dh = drop.h * scale;
                 ctx.save();
-                ctx.globalAlpha = sinking ? (1 - Math.max(0, dropDepth - 0.25) * 1.15) : 1;
+                ctx.globalAlpha = fade;
                 ctx.translate(drop.x + (drop.ox || 0), drop.y + (drop.oy || 0));
                 ctx.rotate(drop.spin || 0);
                 drawCandy({ x: -dw / 2, y: -dh / 2, w: dw, h: dh }, drop.candy);
