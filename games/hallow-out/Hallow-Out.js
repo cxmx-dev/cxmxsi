@@ -41,6 +41,12 @@
     var MOUTH_DEEP = 0.2;
     var LIFE_EVERY = 6;
     var LIFE_CAP = 6;
+    // Full-height night-colored strips. The round pumpkin cannot reach these gutters.
+    var LAYER_FACE = 846;
+    // pumpkin-open.png is 1216x848. Contain height-fits it in the open slot.
+    // The black mouth on that image is about ix 0.11-0.89 and iy 0.08-0.26.
+    var JACK_IW = 1216;
+    var JACK_IH = 848;
     var pumpGfx = null;
 
     function clamp(v, lo, hi) {
@@ -221,10 +227,108 @@
             gulpVx: 0,
             hold: 0,
             over: false,
-            bursts: []
+            bursts: [],
+            bats: makeBats(),
+            batTime: 0
         };
         serve(s);
         return s;
+    }
+
+    function makeBats() {
+        var bats = [];
+        for (var i = 0; i < 3; i++) {
+            bats.push({
+                seed: i * 2.17 + 0.4,
+                flap: i * 1.4,
+                x: W * 0.5,
+                y: 220,
+                vx: 0,
+                vy: 0,
+                face: 1,
+                ready: false
+            });
+        }
+        return bats;
+    }
+
+    function moveBats(s, dt) {
+        if (!s.bats) return;
+        s.batTime = (s.batTime || 0) + dt;
+        var left = (W - LAYER_FACE) + 48;
+        var right = LAYER_FACE - 48;
+        var span = right - left;
+        var t = s.batTime;
+        for (var i = 0; i < s.bats.length; i++) {
+            var bat = s.bats[i];
+            var speed = 0.62 + i * 0.17;
+            var x = left + span * (0.5 + 0.46 * Math.sin(t * speed + bat.seed));
+            var y = 188 + 108 * Math.sin(t * (0.74 + i * 0.11) + bat.seed * 1.6);
+            x += Math.sin(t * 0.85 + i * 1.4) * 26;
+            y += Math.cos(t * 0.57 + bat.seed) * 18;
+            x = clamp(x, left, right);
+            y = clamp(y, 158, 328);
+            if (!bat.ready || !(dt > 0)) {
+                bat.vx = 0;
+                bat.vy = 0;
+                bat.ready = true;
+            } else {
+                bat.vx = (x - bat.x) / dt;
+                bat.vy = (y - bat.y) / dt;
+                if (Math.abs(bat.vx) > 8) bat.face = bat.vx > 0 ? 1 : -1;
+            }
+            bat.x = x;
+            bat.y = y;
+            bat.flap += dt * (8 + i);
+        }
+    }
+
+    function pathHitsCircle(x0, y0, x1, y1, cx, cy, rad) {
+        var dx = x1 - x0;
+        var dy = y1 - y0;
+        var fx = x0 - cx;
+        var fy = y0 - cy;
+        var a = dx * dx + dy * dy;
+        var b = 2 * (fx * dx + fy * dy);
+        var c = fx * fx + fy * fy - rad * rad;
+        if (a < 0.0001) return c <= 0;
+        var disc = b * b - 4 * a * c;
+        if (disc < 0) return false;
+        var root = Math.sqrt(disc);
+        var t1 = (-b - root) / (2 * a);
+        var t2 = (-b + root) / (2 * a);
+        return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1) || c <= 0;
+    }
+
+    function hitBats(s, prevX, prevY) {
+        if (!s.bats) return false;
+        for (var i = 0; i < s.bats.length; i++) {
+            var bat = s.bats[i];
+            var rad = s.ballR + 16;
+            if (!pathHitsCircle(prevX, prevY, s.ballX, s.ballY, bat.x, bat.y, rad)) continue;
+            var dx = s.ballX - bat.x;
+            var dy = s.ballY - bat.y;
+            var d = Math.sqrt(dx * dx + dy * dy) || 1;
+            var nx = dx / d;
+            var ny = dy / d;
+            s.ballX = bat.x + nx * (rad + 0.5);
+            s.ballY = bat.y + ny * (rad + 0.5);
+            var vn = s.ballSpeedX * nx + s.ballSpeedY * ny;
+            if (vn < 0) {
+                s.ballSpeedX -= 2 * vn * nx;
+                s.ballSpeedY -= 2 * vn * ny;
+            }
+            s.ballSpeedX += (bat.vx || 0) * 0.45 + ny * bat.face * 120;
+            s.ballSpeedY += (bat.vy || 0) * 0.28 - nx * bat.face * 80;
+            var sp = Math.sqrt(s.ballSpeedX * s.ballSpeedX + s.ballSpeedY * s.ballSpeedY) || 1;
+            var cap = H * 1.2;
+            if (sp > cap) {
+                s.ballSpeedX = s.ballSpeedX / sp * cap;
+                s.ballSpeedY = s.ballSpeedY / sp * cap;
+            }
+            return true;
+        }
+        return false;
     }
 
     function serve(s) {
@@ -246,14 +350,27 @@
         return 0.62 + 0.38 * c;
     }
 
+    function jackHoleBox() {
+        var scale = Math.min(OPEN_W / JACK_IW, OPEN_H / JACK_IH);
+        var dw = JACK_IW * scale;
+        var dh = JACK_IH * scale;
+        var ox = (OPEN_W - dw) / 2;
+        var oy = (OPEN_H - dh) / 2;
+        return {
+            x0: (ox + 0.11 * dw) / OPEN_W,
+            x1: (ox + 0.89 * dw) / OPEN_W,
+            y0: (oy + 0.05 * dh) / OPEN_H,
+            y1: (oy + 0.30 * dh) / OPEN_H
+        };
+    }
+
     function inHole(s, x, y) {
+        var box = jackHoleBox();
         var nx = (x - s.paddleX) / OPEN_W;
-        if (nx <= 0 || nx >= 1) return false;
-        var open = mouthOpen(nx);
-        if (open < 0.28) return false;
-        var lip = bottomPumpY() + OPEN_H * MOUTH_LIP;
-        var cavity = lip + open * OPEN_H * MOUTH_DEEP;
-        return y > lip - s.ballR * 0.15 && y < cavity + s.ballR;
+        var ny = (y - bottomPumpY()) / OPEN_H;
+        var inset = Math.max(0.012, s.ballR / OPEN_W);
+        if (nx <= box.x0 + inset || nx >= box.x1 - inset) return false;
+        return ny > box.y0 && ny < box.y1;
     }
 
     function swallowHole(s, prevX, prevY) {
@@ -694,8 +811,140 @@
             dw: OPEN_W,
             dh: OPEN_H,
             topW: BELLY_W,
-            topH: BELLY_H
+            topH: BELLY_H,
+            mouth: jackHoleBox()
         };
+        punchSlot(pumpGfx.bottom, pumpGfx.mouth);
+    }
+
+    function punchSlot(mask, box) {
+        if (!mask || !box || !mask.data) return;
+        var x0 = Math.max(0, Math.floor(box.x0 * mask.w));
+        var x1 = Math.min(mask.w - 1, Math.ceil(box.x1 * mask.w) - 1);
+        var y1 = Math.min(mask.h - 1, Math.ceil(box.y1 * mask.h) - 1);
+        var y;
+        var x;
+        for (y = 0; y <= y1; y++) {
+            for (x = x0; x <= x1; x++) mask.data[y * mask.w + x] = 0;
+        }
+    }
+
+    function maskOpenArt(canvas) {
+        var g = canvas.getContext('2d');
+        var w = canvas.width;
+        var h = canvas.height;
+        var pixels = g.getImageData(0, 0, w, h).data;
+        var data = new Uint8Array(w * h);
+        var dark = new Uint8Array(w * h);
+        var i;
+        for (i = 0; i < w * h; i++) {
+            var r = pixels[i * 4];
+            var gv = pixels[i * 4 + 1];
+            var b = pixels[i * 4 + 2];
+            var a = pixels[i * 4 + 3];
+            if (a < 40) continue;
+            if (r < 48 && gv < 48 && b < 48) dark[i] = 1;
+            else data[i] = 1;
+        }
+        var outline = new Uint8Array(w * h);
+        var stack = [];
+        function pushDark(idx) {
+            if (idx < 0 || idx >= dark.length || outline[idx] || !dark[idx]) return;
+            var x = idx % w;
+            var y = (idx - x) / w;
+            var edge = x === 0 || y === 0 || x === w - 1 || y === h - 1;
+            var neighborClear = false;
+            if (x > 0 && !data[idx - 1] && !dark[idx - 1]) neighborClear = true;
+            if (x + 1 < w && !data[idx + 1] && !dark[idx + 1]) neighborClear = true;
+            if (y > 0 && !data[idx - w] && !dark[idx - w]) neighborClear = true;
+            if (y + 1 < h && !data[idx + w] && !dark[idx + w]) neighborClear = true;
+            if (edge || neighborClear) stack.push(idx);
+        }
+        for (i = 0; i < dark.length; i++) pushDark(i);
+        while (stack.length) {
+            var idx = stack.pop();
+            if (outline[idx] || !dark[idx]) continue;
+            outline[idx] = 1;
+            var x = idx % w;
+            var y = (idx - x) / w;
+            if (x > 0) stack.push(idx - 1);
+            if (x + 1 < w) stack.push(idx + 1);
+            if (y > 0) stack.push(idx - w);
+            if (y + 1 < h) stack.push(idx + w);
+        }
+        var minX = w;
+        var minY = h;
+        var maxX = -1;
+        var maxY = -1;
+        var mouthCount = 0;
+        for (i = 0; i < dark.length; i++) {
+            if (!dark[i] || outline[i]) continue;
+            mouthCount++;
+            var x = i % w;
+            var y = (i - x) / w;
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+        }
+        var mouth = jackHoleBox();
+        if (mouthCount > 40 && maxX > minX && maxY > minY) {
+            var lip = Math.max(2, Math.round((maxX - minX) * 0.04));
+            var xLo = Math.max(0, minX - lip);
+            var xHi = Math.min(w - 1, maxX + lip);
+            var yCut = Math.min(maxY, Math.ceil(mouth.y1 * h));
+            for (var y = 0; y <= yCut; y++) {
+                for (var x = xLo; x <= xHi; x++) data[y * w + x] = 0;
+            }
+        }
+        punchSlot(maskShell(), mouth);
+        return maskShell();
+
+        function maskShell() {
+            return { w: w, h: h, data: data, canvas: canvas, mouth: mouth };
+        }
+    }
+
+    function applyOpenArt(img) {
+        if (!img || !img.naturalWidth || typeof document === 'undefined') return;
+        if (!pumpGfx) buildPumpkin();
+        if (!pumpGfx) return;
+        pumpGfx.mouth = jackHoleBox();
+        try {
+            var open = document.createElement('canvas');
+            open.width = OPEN_SRC_W;
+            open.height = OPEN_SRC_H;
+            var g = open.getContext('2d');
+            g.imageSmoothingEnabled = true;
+            drawContainOn(g, img, OPEN_SRC_W, OPEN_SRC_H);
+            var mask = maskOpenArt(open);
+            pumpGfx.bottom = mask;
+            pumpGfx.mouth = jackHoleBox();
+        } catch (err) {
+            pumpGfx.mouth = jackHoleBox();
+        }
+    }
+
+    function drawContainOn(g, img, w, h) {
+        var iw = img.naturalWidth || img.width;
+        var ih = img.naturalHeight || img.height;
+        if (!iw || !ih) return;
+        var scale = Math.min(w / iw, h / ih);
+        var dw = iw * scale;
+        var dh = ih * scale;
+        g.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    }
+
+    function applyBellyArt(img) {
+        if (!img || !img.naturalWidth || typeof document === 'undefined') return;
+        var belly = document.createElement('canvas');
+        belly.width = BELLY_SRC_W;
+        belly.height = BELLY_SRC_H;
+        var g = belly.getContext('2d');
+        g.imageSmoothingEnabled = true;
+        drawContainOn(g, img, BELLY_SRC_W, BELLY_SRC_H);
+        if (!pumpGfx) buildPumpkin();
+        pumpGfx.top = maskFromCanvas(belly);
     }
 
     function maskOverlaps(mask, lx, ly, dw, dh, rad) {
@@ -776,6 +1025,81 @@
         return bounced;
     }
 
+    function overMouth(s, x, y) {
+        var box = jackHoleBox();
+        var nx = (x - s.paddleX) / OPEN_W;
+        var ny = (y - bottomPumpY()) / OPEN_H;
+        if (nx <= box.x0 || nx >= box.x1) return false;
+        return ny > box.y0 - 0.16 && ny < box.y1;
+    }
+
+    function hitOpenReach(s, prevX, prevY) {
+        var boxX = s.paddleX;
+        var boxY = bottomPumpY();
+        var boxR = boxX + OPEN_W;
+        var boxB = boxY + OPEN_H;
+        var rad = s.ballR;
+        var nearX = clamp(s.ballX, boxX, boxR);
+        var nearY = clamp(s.ballY, boxY, boxB);
+        var dx = s.ballX - nearX;
+        var dy = s.ballY - nearY;
+        if (dx * dx + dy * dy > rad * rad) return false;
+        if (overMouth(s, s.ballX, s.ballY)) return false;
+        if (prevY + rad <= boxY + 1 && s.ballSpeedY > 0) {
+            if (overMouth(s, s.ballX, boxY + 1)) return false;
+            s.ballY = boxY - rad;
+            s.ballSpeedY = -Math.abs(s.ballSpeedY);
+            return true;
+        }
+        if (prevX + rad <= boxX + 1 && s.ballSpeedX > 0) {
+            s.ballX = boxX - rad;
+            s.ballSpeedX = -Math.abs(s.ballSpeedX);
+            return true;
+        }
+        if (prevX - rad >= boxR - 1 && s.ballSpeedX < 0) {
+            s.ballX = boxR + rad;
+            s.ballSpeedX = Math.abs(s.ballSpeedX);
+            return true;
+        }
+        if (prevY - rad >= boxB - 1 && s.ballSpeedY < 0) {
+            s.ballY = boxB + rad;
+            s.ballSpeedY = Math.abs(s.ballSpeedY);
+            return true;
+        }
+        if (s.ballX < boxX + OPEN_W * 0.5) {
+            s.ballX = boxX - rad;
+            if (s.ballSpeedX > 0) s.ballSpeedX *= -1;
+        } else {
+            s.ballX = boxR + rad;
+            if (s.ballSpeedX < 0) s.ballSpeedX *= -1;
+        }
+        return true;
+    }
+
+    function hitSideLayer(s, prevX, face, inward) {
+        if (overMouth(s, s.ballX, s.ballY)) return false;
+        var rad = s.ballR;
+        var pen = inward > 0 ? (face - (s.ballX - rad)) : ((s.ballX + rad) - face);
+        if (pen <= 0.25) return false;
+        var into = inward > 0 ? (s.ballSpeedX < 0 && prevX >= s.ballX) : (s.ballSpeedX > 0 && prevX <= s.ballX);
+        var buried = inward > 0 ? s.ballX < face : s.ballX > face;
+        if (!buried && !into) return false;
+        if (inward > 0) {
+            s.ballX = face + rad;
+            s.ballSpeedX = Math.abs(s.ballSpeedX);
+        } else {
+            s.ballX = face - rad;
+            s.ballSpeedX = -Math.abs(s.ballSpeedX);
+        }
+        return true;
+    }
+
+    function hitBlackLayer(s, prevX) {
+        var leftFace = W - LAYER_FACE;
+        if (hitSideLayer(s, prevX, leftFace, 1)) return true;
+        return hitSideLayer(s, prevX, LAYER_FACE, -1);
+    }
+
     function hitMask(s, prevX, prevY, mask, ox, oy, dw, dh, scoop) {
         var dx = s.ballX - prevX;
         var dy = s.ballY - prevY;
@@ -802,6 +1126,7 @@
         input = input || {};
         dt = Math.min(MAX_DT, Math.max(0, dt));
         tickBursts(s, dt);
+        moveBats(s, dt);
         if (s.oneUp > 0) s.oneUp = Math.max(0, s.oneUp - dt);
         var travel = W * 0.78;
         if (input.aim && !input.stickX) s.paddleX = input.aimX - CROWN_W / 2;
@@ -846,8 +1171,9 @@
             s.ballSpeedX *= -1;
             events.push('bounce');
         }
-        if (s.ballY - r < HANG_Y && s.ballSpeedY < 0) {
-            s.ballY = HANG_Y + r;
+        var moonTop = HANG_Y + BELLY_H;
+        if (!(s.gulp > 0) && s.ballY - r < moonTop && s.ballSpeedY < 0) {
+            s.ballY = moonTop + r;
             s.ballSpeedY = Math.abs(s.ballSpeedY);
             events.push('bounce');
         }
@@ -892,14 +1218,19 @@
             }
         }
         if (pumpGfx) {
-            if (!s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.top, bellyLeft(s.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH, false)) events.push('bounce');
-            if (!s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.bottom, s.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh, false)) events.push('bounce');
+            var hitTop = !s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.top, bellyLeft(s.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH, false);
+            var overHole = overMouth(s, s.ballX, s.ballY) || overMouth(s, prevX, prevY);
+            var hitBottom = !overHole && !s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.bottom, s.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh, false);
+            if (hitTop || hitBottom) events.push('bounce');
+            else if (!s.over && !swallowed && hitOpenReach(s, prevX, prevY)) events.push('bounce');
         } else {
             if (!s.over && hitCrown(s, prevX, prevY, topPoints(s.paddleX), false)) events.push('bounce');
             if (!s.over && hitCrown(s, prevX, prevY, crownPoints(s.paddleX), true)) events.push('paddle');
         }
-        if (!(s.gulp > 0) && s.ballY - r < HANG_Y) {
-            s.ballY = HANG_Y + r;
+        if (!s.over && !swallowed && !hit && hitBlackLayer(s, prevX)) events.push('bounce');
+        if (!s.over && !swallowed && !hit && !(s.gulp > 0) && hitBats(s, prevX, prevY)) events.push('bounce');
+        if (!(s.gulp > 0) && s.ballY - r < HANG_Y + BELLY_H) {
+            s.ballY = HANG_Y + BELLY_H + r;
             if (s.ballSpeedY < 0) s.ballSpeedY = Math.abs(s.ballSpeedY);
         }
 
@@ -1175,7 +1506,63 @@
             };
         }
 
+        var candyImg = {};
+        var candyFiles = {
+            corn: 'art/corn.png?v=2',
+            taffy: 'art/taffy.png?v=2',
+            pop: 'art/pop.png?v=2',
+            bar: 'art/bar.png?v=2',
+            drop: 'art/drop.png?v=2',
+            apple: 'art/apple.png?v=2',
+            eye: 'art/eye.png?v=2',
+            twist: 'art/twist.png?v=2',
+            kiss: 'art/kiss.png?v=2'
+        };
+
+        function loadCandyArt() {
+            var kind;
+            for (kind in candyFiles) {
+                if (!Object.prototype.hasOwnProperty.call(candyFiles, kind)) continue;
+                var img = new Image();
+                img.src = candyFiles[kind];
+                candyImg[kind] = img;
+            }
+            var open = new Image();
+            open.onload = function () {
+                openSprite = open;
+                applyOpenArt(open);
+            };
+            open.src = 'art/pumpkin-open.png?v=5';
+            var belly = new Image();
+            belly.onload = function () {
+                bellySprite = belly;
+                applyBellyArt(belly);
+            };
+            belly.src = 'art/moon-bottom.png?v=2';
+        }
+
+        var openSprite = null;
+        var bellySprite = null;
+
+        function drawContain(img, x, y, w, h) {
+            var iw = img.naturalWidth;
+            var ih = img.naturalHeight;
+            if (!iw || !ih) return;
+            var scale = Math.min(w / iw, h / ih);
+            var dw = iw * scale;
+            var dh = ih * scale;
+            ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+        }
+
         function drawCandy(box, kind) {
+            var img = candyImg[kind];
+            if (img && img.complete && img.naturalWidth) {
+                var smooth = ctx.imageSmoothingEnabled;
+                ctx.imageSmoothingEnabled = false;
+                drawContain(img, box.x, box.y, box.w, box.h);
+                ctx.imageSmoothingEnabled = smooth;
+                return;
+            }
             var w = box.w;
             var h = box.h;
             ctx.save();
@@ -1469,6 +1856,50 @@
             ctx.restore();
         }
 
+        function drawBat(bat) {
+            ctx.save();
+            ctx.translate(bat.x, bat.y);
+            ctx.scale(bat.face || 1, 1);
+            var lift = Math.sin(bat.flap) * 12;
+            ctx.fillStyle = '#140814';
+            ctx.strokeStyle = '#6a3080';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-6, 0);
+            ctx.quadraticCurveTo(-22, -18 - lift, -34, -2 - lift * 0.3);
+            ctx.quadraticCurveTo(-20, 8 + lift * 0.2, -6, 3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(6, 0);
+            ctx.quadraticCurveTo(22, -18 - lift, 34, -2 - lift * 0.3);
+            ctx.quadraticCurveTo(20, 8 + lift * 0.2, 6, 3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.ellipse(0, 1, 9, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(-4, -3);
+            ctx.lineTo(-8, -12);
+            ctx.lineTo(-1, -4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(4, -3);
+            ctx.lineTo(8, -12);
+            ctx.lineTo(1, -4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#F6D000';
+            ctx.fillRect(-5, -1, 3, 3);
+            ctx.fillRect(2, -1, 3, 3);
+            ctx.restore();
+        }
+
         function draw() {
             if (!state) return;
             ctx.fillStyle = NIGHT;
@@ -1488,16 +1919,27 @@
                 ctx.closePath();
                 ctx.fill();
             }
-            if (pumpGfx) {
+            if (pumpGfx || bellySprite || openSprite) {
                 var smooth = ctx.imageSmoothingEnabled;
                 ctx.imageSmoothingEnabled = true;
                 if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(pumpGfx.top.canvas, bellyLeft(state.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH);
-                ctx.drawImage(pumpGfx.bottom.canvas, state.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh);
+                if (bellySprite && bellySprite.complete && bellySprite.naturalWidth) {
+                    drawContain(bellySprite, bellyLeft(state.paddleX), HANG_Y, BELLY_W, BELLY_H);
+                } else if (pumpGfx) {
+                    ctx.drawImage(pumpGfx.top.canvas, bellyLeft(state.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH);
+                }
+                if (openSprite && openSprite.complete && openSprite.naturalWidth) {
+                    drawContain(openSprite, state.paddleX, bottomPumpY(), OPEN_W, OPEN_H);
+                } else if (pumpGfx) {
+                    ctx.drawImage(pumpGfx.bottom.canvas, state.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh);
+                }
                 ctx.imageSmoothingEnabled = smooth;
             } else {
                 fillPoly(topPoints(state.paddleX), PUMPKIN);
                 fillPoly(crownPoints(state.paddleX), PUMPKIN);
+            }
+            if (state.bats) {
+                for (var bi2 = 0; bi2 < state.bats.length; bi2++) drawBat(state.bats[bi2]);
             }
             if (!(state.gulp > 0)) {
                 ctx.fillStyle = '#FFE7A0';
@@ -1932,11 +2374,42 @@
         else fit();
         setMuteIcon();
         syncCursor();
+        loadCandyArt();
         buildPumpkin();
         ctx.fillStyle = NIGHT;
         ctx.fillRect(0, 0, W, H);
         requestAnimationFrame(padFrame);
     }
+
+    function installFallbackPump() {
+        var bottom = {
+            w: OPEN_SRC_W,
+            h: OPEN_SRC_H,
+            data: new Uint8Array(OPEN_SRC_W * OPEN_SRC_H),
+            canvas: null
+        };
+        var top = {
+            w: BELLY_SRC_W,
+            h: BELLY_SRC_H,
+            data: new Uint8Array(BELLY_SRC_W * BELLY_SRC_H),
+            canvas: null
+        };
+        var i;
+        for (i = 0; i < bottom.data.length; i++) bottom.data[i] = 1;
+        var box = jackHoleBox();
+        punchSlot(bottom, box);
+        pumpGfx = {
+            bottom: bottom,
+            top: top,
+            dw: OPEN_W,
+            dh: OPEN_H,
+            topW: BELLY_W,
+            topH: BELLY_H,
+            mouth: box
+        };
+    }
+
+    if (typeof document === 'undefined') installFallbackPump();
 
     return {
         W: W,
