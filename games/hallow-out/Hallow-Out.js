@@ -49,7 +49,7 @@
     var JACK_IH = 848;
     var pumpGfx = null;
     var handArt = [];
-    var HAND_LIFE = 10;
+    var HAND_LIFE = 3;
 
     function clamp(v, lo, hi) {
         return Math.max(lo, Math.min(hi, v));
@@ -570,10 +570,14 @@
         var px = (span.w / 3) / fistW;
         var dw = (art.img.naturalWidth || art.mask && art.mask.w || 1) * px;
         var dh = (art.img.naturalHeight || art.mask && art.mask.h || 1) * px;
+        var reach = handArt[1];
+        var tip = reach && typeof reach.tip === 'number' ? reach.tip : 0.2;
+        var candyBot = s.offsetTop + s.rows * (s.brickH + s.pad) - s.pad;
+        var y = candyBot + 8 - tip * dh;
         return {
             art: art,
             x: span.cx - dw / 2,
-            y: span.top - dh * 0.9,
+            y: y,
             w: dw,
             h: dh
         };
@@ -1916,11 +1920,11 @@
             };
             belly.src = 'art/moon-bottom.png?v=2';
             var handFiles = [
-                'art/zombie-hand-fist/ghoul-1-emerge.png?v=2',
-                'art/zombie-hand-fist/ghoul-2-reach.png?v=2',
-                'art/zombie-hand-fist/ghoul-3-curl.png?v=2',
-                'art/zombie-hand-fist/ghoul-4-midway.png?v=2',
-                'art/zombie-hand-fist/ghoul-5-fist.png?v=2'
+                'art/zombie-hand-fist/ghoul-1-emerge.png?v=3',
+                'art/zombie-hand-fist/ghoul-2-reach.png?v=3',
+                'art/zombie-hand-fist/ghoul-3-curl.png?v=3',
+                'art/zombie-hand-fist/ghoul-4-midway.png?v=3',
+                'art/zombie-hand-fist/ghoul-5-fist.png?v=3'
             ];
             var hi;
             for (hi = 0; hi < handFiles.length; hi++) {
@@ -1930,6 +1934,7 @@
                         var pack = window.HAND_MASKS && window.HAND_MASKS[slot];
                         var mask = pack ? decodeHandMask(pack) : null;
                         var opaqueW = (pack && pack.opaqueW) || Math.round((img.naturalWidth || 400) * 0.34);
+                        var tip = pack && typeof pack.tip === 'number' ? pack.tip : null;
                         if (!mask) {
                             try {
                                 var canvas = document.createElement('canvas');
@@ -1954,7 +1959,7 @@
                                 mask = null;
                             }
                         }
-                        handArt[slot] = { img: img, mask: mask, opaqueW: opaqueW };
+                        handArt[slot] = { img: img, mask: mask, opaqueW: opaqueW, tip: tip };
                     };
                     img.src = src;
                 })(hi, handFiles[hi]);
@@ -2441,8 +2446,7 @@
                     ctx.rect(span.left - 6, 0, span.w + 12, span.bot + 2);
                     ctx.clip();
                 }
-                ctx.imageSmoothingEnabled = true;
-                if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
+                ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(posed.art.img, posed.x, posed.y, posed.w, posed.h);
                 ctx.restore();
                 ctx.imageSmoothingEnabled = smoothHand;
