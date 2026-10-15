@@ -560,6 +560,11 @@
         return null;
     }
 
+    function handCutY(span) {
+        // The hole box runs down to the front lip. Stop inside the black.
+        return span.top + (span.bot - span.top) * 0.55;
+    }
+
     function handBox(s) {
         if (!(s.hand > 0)) return null;
         var art = handArtAt(handFrameIndex(s.handAge || 0, s.hand));
@@ -579,7 +584,8 @@
             x: span.cx - dw / 2,
             y: y,
             w: dw,
-            h: dh
+            h: dh,
+            cut: handCutY(span)
         };
     }
 
@@ -1545,7 +1551,7 @@
 
         var handHit = false;
         var posed = handBox(s);
-        if (posed && !s.inMouth && !s.over) {
+        if (posed && !s.inMouth && !s.over && s.ballY <= posed.cut + s.ballR) {
             if (posed.art.mask) {
                 handHit = hitMask(s, prevX, prevY, posed.art.mask, posed.x, posed.y, posed.w, posed.h, false);
             } else {
@@ -1920,11 +1926,11 @@
             };
             belly.src = 'art/moon-bottom.png?v=2';
             var handFiles = [
-                'art/zombie-hand-fist/ghoul-1-emerge.png?v=3',
-                'art/zombie-hand-fist/ghoul-2-reach.png?v=3',
-                'art/zombie-hand-fist/ghoul-3-curl.png?v=3',
-                'art/zombie-hand-fist/ghoul-4-midway.png?v=3',
-                'art/zombie-hand-fist/ghoul-5-fist.png?v=3'
+                'art/zombie-hand-fist/ghoul-1-emerge.png?v=5',
+                'art/zombie-hand-fist/ghoul-2-reach.png?v=5',
+                'art/zombie-hand-fist/ghoul-3-curl.png?v=5',
+                'art/zombie-hand-fist/ghoul-4-midway.png?v=5',
+                'art/zombie-hand-fist/ghoul-5-fist.png?v=5'
             ];
             var hi;
             for (hi = 0; hi < handFiles.length; hi++) {
@@ -2443,7 +2449,7 @@
                 ctx.save();
                 if (span) {
                     ctx.beginPath();
-                    ctx.rect(span.left - 6, 0, span.w + 12, span.bot + 2);
+                    ctx.rect(span.left, 0, span.w, posed.cut);
                     ctx.clip();
                 }
                 ctx.imageSmoothingEnabled = false;
