@@ -1880,15 +1880,15 @@
 
         var candyImg = {};
         var candyFiles = {
-            corn: 'art/corn.png?v=2',
-            taffy: 'art/taffy.png?v=2',
-            pop: 'art/pop.png?v=2',
-            bar: 'art/bar.png?v=2',
-            drop: 'art/drop.png?v=2',
-            apple: 'art/apple.png?v=2',
-            eye: 'art/eye.png?v=2',
-            twist: 'art/twist.png?v=2',
-            kiss: 'art/kiss.png?v=2'
+            corn: 'art/corn.png?v=3',
+            taffy: 'art/taffy.png?v=3',
+            pop: 'art/pop.png?v=3',
+            bar: 'art/bar.png?v=3',
+            drop: 'art/drop.png?v=3',
+            apple: 'art/apple.png?v=3',
+            eye: 'art/eye.png?v=3',
+            twist: 'art/twist.png?v=3',
+            kiss: 'art/kiss.png?v=3'
         };
 
         function decodeHandMask(pack) {
@@ -1988,7 +1988,8 @@
             var img = candyImg[kind];
             if (img && img.complete && img.naturalWidth) {
                 var smooth = ctx.imageSmoothingEnabled;
-                ctx.imageSmoothingEnabled = false;
+                ctx.imageSmoothingEnabled = true;
+                if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
                 drawContain(img, box.x, box.y, box.w, box.h);
                 ctx.imageSmoothingEnabled = smooth;
                 return;
