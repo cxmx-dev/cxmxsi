@@ -44,10 +44,12 @@
     // Full-height night-colored strips. The round pumpkin cannot reach these gutters.
     var LAYER_FACE = 846;
     // pumpkin-open.png is 1216x848. Contain height-fits it in the open slot.
-    // The black mouth on that image is about ix 0.11-0.89 and iy 0.08-0.26.
+    // The black opening, as a fraction of that slot, is about x 0.27-0.73 and y 0.08-0.26.
     var JACK_IW = 1216;
     var JACK_IH = 848;
     var pumpGfx = null;
+    var handArt = [];
+    var HAND_LIFE = 10;
 
     function clamp(v, lo, hi) {
         return Math.max(lo, Math.min(hi, v));
@@ -182,7 +184,8 @@
         var cols = 9;
         var rows = 5;
         var pad = 4;
-        var offsetLeft = 30;
+        // Keep every column inside the mouth's travel. The hole is inset from the round cheeks.
+        var offsetLeft = Math.round(OPEN_W * 0.27 + 36);
         var brickH = 24;
         var stack = rows * brickH + (rows - 1) * pad;
         var gapTop = HANG_Y + BELLY_H;
@@ -232,7 +235,10 @@
             loose: [],
             pops: [],
             bats: makeBats(),
-            batTime: 0
+            batTime: 0,
+            inMouth: false,
+            hand: 0,
+            handAge: 0
         };
         serve(s);
         return s;
@@ -338,6 +344,7 @@
         s.gulp = 0.32;
         s.gulpAim = Math.random() < 0.5 ? -0.22 : 0.22;
         s.gulpVx = 0;
+        s.inMouth = false;
         s.ballX = -80;
         s.ballY = -80;
         s.ballSpeedX = 0;
@@ -354,45 +361,222 @@
     }
 
     function jackHoleBox() {
-        var scale = Math.min(OPEN_W / JACK_IW, OPEN_H / JACK_IH);
-        var dw = JACK_IW * scale;
-        var dh = JACK_IH * scale;
-        var ox = (OPEN_W - dw) / 2;
-        var oy = (OPEN_H - dh) / 2;
         return {
-            x0: (ox + 0.11 * dw) / OPEN_W,
-            x1: (ox + 0.89 * dw) / OPEN_W,
-            y0: (oy + 0.05 * dh) / OPEN_H,
-            y1: (oy + 0.30 * dh) / OPEN_H
+            x0: 0.27,
+            x1: 0.73,
+            y0: 0.08,
+            y1: 0.26
         };
     }
 
-    function inHole(s, x, y) {
-        var box = jackHoleBox();
-        var nx = (x - s.paddleX) / OPEN_W;
-        var ny = (y - bottomPumpY()) / OPEN_H;
-        var inset = Math.max(0.012, s.ballR / OPEN_W);
-        if (nx <= box.x0 + inset || nx >= box.x1 - inset) return false;
-        return ny > box.y0 && ny < box.y1;
+    function buildCavity(canvas) {
+        var g = canvas.getContext('2d');
+        var w = canvas.width;
+        var h = canvas.height;
+        var pixels = g.getImageData(0, 0, w, h).data;
+        var dark = new Uint8Array(w * h);
+        var yCut = Math.floor(h * 0.42);
+        var y;
+        var x;
+        var i;
+        for (y = 0; y < yCut; y++) {
+            for (x = 0; x < w; x++) {
+                i = y * w + x;
+                var p = i * 4;
+                if (pixels[p + 3] > 180 && pixels[p] < 40 && pixels[p + 1] < 40 && pixels[p + 2] < 40) dark[i] = 1;
+            }
+        }
+        var seen = new Uint8Array(w * h);
+        var best = null;
+        var stack = [];
+        for (i = 0; i < dark.length; i++) {
+            if (!dark[i] || seen[i]) continue;
+            var comp = [];
+            stack.length = 0;
+            stack.push(i);
+            seen[i] = 1;
+            while (stack.length) {
+                var idx = stack.pop();
+                comp.push(idx);
+                var cx = idx % w;
+                var cy = (idx - cx) / w;
+                if (cx > 0 && dark[idx - 1] && !seen[idx - 1]) {
+                    seen[idx - 1] = 1;
+                    stack.push(idx - 1);
+                }
+                if (cx + 1 < w && dark[idx + 1] && !seen[idx + 1]) {
+                    seen[idx + 1] = 1;
+                    stack.push(idx + 1);
+                }
+                if (cy > 0 && dark[idx - w] && !seen[idx - w]) {
+                    seen[idx - w] = 1;
+                    stack.push(idx - w);
+                }
+                if (cy + 1 < h && dark[idx + w] && !seen[idx + w]) {
+                    seen[idx + w] = 1;
+                    stack.push(idx + w);
+                }
+            }
+            if (!best || comp.length > best.length) best = comp;
+        }
+        var data = new Uint8Array(w * h);
+        var cols = new Array(w);
+        if (best && best.length > 80) {
+            for (i = 0; i < best.length; i++) {
+                idx = best[i];
+                data[idx] = 1;
+                cx = idx % w;
+                cy = (idx - cx) / w;
+                var col = cols[cx];
+                if (!col) cols[cx] = { top: cy, bot: cy };
+                else {
+                    if (cy < col.top) col.top = cy;
+                    if (cy > col.bot) col.bot = cy;
+                }
+            }
+        }
+        return { w: w, h: h, data: data, cols: cols };
     }
 
-    function swallowHole(s, prevX, prevY) {
-        var steps = 8;
-        var caught = null;
-        for (var i = 1; i <= steps; i++) {
-            var t = i / steps;
-            var x = prevX + (s.ballX - prevX) * t;
-            var y = prevY + (s.ballY - prevY) * t;
-            if (!inHole(s, x, y)) continue;
-            caught = x;
-            break;
+    function bakeJackViews(openCanvas, cavity) {
+        var w = openCanvas.width;
+        var h = openCanvas.height;
+        var shell = document.createElement('canvas');
+        var fill = document.createElement('canvas');
+        shell.width = w;
+        shell.height = h;
+        fill.width = w;
+        fill.height = h;
+        var sg = shell.getContext('2d');
+        sg.drawImage(openCanvas, 0, 0);
+        var img = sg.getImageData(0, 0, w, h);
+        var fg = fill.getContext('2d');
+        var fimg = fg.createImageData(w, h);
+        var i;
+        for (i = 0; i < cavity.data.length; i++) {
+            if (!cavity.data[i]) continue;
+            img.data[i * 4 + 3] = 0;
+            fimg.data[i * 4] = 6;
+            fimg.data[i * 4 + 1] = 3;
+            fimg.data[i * 4 + 2] = 5;
+            fimg.data[i * 4 + 3] = 255;
         }
-        if (caught === null) return false;
-        s.ballX = -80;
-        s.ballY = -80;
-        s.ballSpeedX = 0;
-        s.ballSpeedY = 0;
-        return true;
+        sg.putImageData(img, 0, 0);
+        fg.putImageData(fimg, 0, 0);
+        return { shell: shell, fill: fill };
+    }
+
+    function mouthColumn(s, x) {
+        var topY = bottomPumpY();
+        var mask = pumpGfx && pumpGfx.cavity;
+        if (mask && mask.cols) {
+            var mx = Math.floor((x - s.paddleX) * mask.w / OPEN_W);
+            if (mx < 0 || mx >= mask.w || !mask.cols[mx]) return null;
+            var col = mask.cols[mx];
+            return {
+                top: topY + col.top * OPEN_H / mask.h,
+                bot: topY + (col.bot + 1) * OPEN_H / mask.h
+            };
+        }
+        var box = jackHoleBox();
+        var nx = (x - s.paddleX) / OPEN_W;
+        if (nx <= box.x0 || nx >= box.x1) return null;
+        return {
+            top: topY + box.y0 * OPEN_H,
+            bot: topY + box.y1 * OPEN_H
+        };
+    }
+
+    function mouthSpan(s) {
+        var mask = pumpGfx && pumpGfx.cavity;
+        if (!mask || !mask.cols) {
+            var box = jackHoleBox();
+            var left = s.paddleX + box.x0 * OPEN_W;
+            var right = s.paddleX + box.x1 * OPEN_W;
+            return {
+                top: bottomPumpY() + box.y0 * OPEN_H,
+                bot: bottomPumpY() + box.y1 * OPEN_H,
+                left: left,
+                right: right,
+                cx: (left + right) / 2,
+                w: right - left
+            };
+        }
+        var minX = mask.w;
+        var maxX = -1;
+        var top = mask.h;
+        var bot = -1;
+        var x;
+        for (x = 0; x < mask.w; x++) {
+            var col = mask.cols[x];
+            if (!col) continue;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (col.top < top) top = col.top;
+            if (col.bot > bot) bot = col.bot;
+        }
+        if (maxX < minX) return null;
+        var sx = OPEN_W / mask.w;
+        var sy = OPEN_H / mask.h;
+        var leftW = s.paddleX + minX * sx;
+        var rightW = s.paddleX + (maxX + 1) * sx;
+        return {
+            top: bottomPumpY() + top * sy,
+            bot: bottomPumpY() + (bot + 1) * sy,
+            left: leftW,
+            right: rightW,
+            cx: (leftW + rightW) / 2,
+            w: rightW - leftW
+        };
+    }
+
+    function inMouth(s, x, y) {
+        var col = mouthColumn(s, x);
+        return !!col && y >= col.top && y <= col.bot;
+    }
+
+    function handFrameIndex(age, left) {
+        var last = 4;
+        var slice = 0.22;
+        if (left <= 0.96) {
+            var back = Math.round(((0.96 - left) / 0.96) * last);
+            if (back < 0) back = 0;
+            if (back > last) back = last;
+            return last - back;
+        }
+        var i = Math.floor(age / slice);
+        if (i < 0) i = 0;
+        if (i > last) i = last;
+        return i;
+    }
+
+    function handArtAt(idx) {
+        if (handArt[idx] && handArt[idx].img) return handArt[idx];
+        if (handArt[4] && handArt[4].img) return handArt[4];
+        var i;
+        for (i = handArt.length - 1; i >= 0; i--) {
+            if (handArt[i] && handArt[i].img) return handArt[i];
+        }
+        return null;
+    }
+
+    function handBox(s) {
+        if (!(s.hand > 0)) return null;
+        var art = handArtAt(handFrameIndex(s.handAge || 0, s.hand));
+        if (!art || !art.img) return null;
+        var span = mouthSpan(s);
+        if (!span) return null;
+        var fistW = (handArt[4] && handArt[4].opaqueW) || art.opaqueW || art.img.naturalWidth || 400;
+        var px = (span.w / 3) / fistW;
+        var dw = (art.img.naturalWidth || art.mask && art.mask.w || 1) * px;
+        var dh = (art.img.naturalHeight || art.mask && art.mask.h || 1) * px;
+        return {
+            art: art,
+            x: span.cx - dw / 2,
+            y: span.top - dh * 0.9,
+            w: dw,
+            h: dh
+        };
     }
 
     function releaseFromTop(s) {
@@ -485,13 +669,6 @@
         });
     }
 
-    function looseInHole(s, x, y) {
-        var box = jackHoleBox();
-        var nx = (x - s.paddleX) / OPEN_W;
-        var ny = (y - bottomPumpY()) / OPEN_H;
-        return nx > box.x0 && nx < box.x1 && ny > box.y0 && ny < box.y1;
-    }
-
     function tickLoose(s, dt) {
         var caught = 0;
         if (!s.loose) s.loose = [];
@@ -517,38 +694,71 @@
             }
             d.ox = 0;
             d.oy = 0;
+            if (d.sink && d.vy > 150) d.vy = 150;
             d.vy += 980 * dt;
-            if (d.vy > 720) d.vy = 720;
+            if (d.sink && d.vy > 150) d.vy = 150;
+            if (!d.sink && d.vy > 720) d.vy = 720;
             d.x += d.vx * dt;
             d.y += d.vy * dt;
             d.spin += dt * 1.4;
-            var steps = 6;
+            var steps = 8;
             var n;
-            var caughtHere = false;
-            for (n = 1; n <= steps; n++) {
-                var t = n / steps;
-                if (looseInHole(s, prevX + (d.x - prevX) * t, prevY + (d.y - prevY) * t)) {
-                    caughtHere = true;
-                    break;
+            var entered = false;
+            var hitShell = false;
+            var hitX = d.x;
+            var hitY = d.y;
+            var spanNow = mouthSpan(s);
+            if (!d.sink && d.vy > 0) {
+                for (n = 1; n <= steps; n++) {
+                    var t = n / steps;
+                    var x = prevX + (d.x - prevX) * t;
+                    var y = prevY + (d.y - prevY) * t;
+                    var overOpening = spanNow && x > spanNow.left + d.w * 0.2 && x < spanNow.right - d.w * 0.2 && y >= spanNow.top - d.h * 0.2;
+                    if (inMouth(s, x, y) || overOpening) {
+                        entered = true;
+                        hitX = x;
+                        hitY = Math.max(y, spanNow ? spanNow.top : y);
+                        break;
+                    }
+                    if (shellSolid(s, x, y + d.h * 0.28)) {
+                        hitShell = true;
+                        hitX = x;
+                        hitY = y;
+                        break;
+                    }
                 }
             }
-            if (caughtHere) {
-                s.score += 10;
-                s.pops.push({ x: d.x, y: d.y - 8, age: 0, life: 0.7 });
-                s.loose.splice(i, 1);
-                caught++;
+            if (entered) {
+                d.sink = true;
+                d.x = hitX;
+                d.y = hitY;
+                d.vy = 110;
+                d.vx = 0;
+            }
+            if (d.sink) {
+                if (spanNow) d.x += (spanNow.cx - d.x) * Math.min(1, dt * 10);
+                var col = mouthColumn(s, d.x);
+                if (!col || d.y >= col.bot - 0.5) {
+                    s.score += 10;
+                    s.pops.push({
+                        x: d.x,
+                        y: col ? (col.top + col.bot) * 0.5 : d.y,
+                        age: 0,
+                        life: 0.7
+                    });
+                    s.loose.splice(i, 1);
+                    caught++;
+                }
                 continue;
             }
-            var mouth = jackHoleBox();
-            var nx = (d.x - s.paddleX) / OPEN_W;
-            var ny = (d.y - bottomPumpY()) / OPEN_H;
-            var onBody = nx > 0.04 && nx < 0.96 && (nx <= mouth.x0 || nx >= mouth.x1) && ny > -0.02 && ny < 0.55 && d.vy > 0;
-            if (onBody) {
-                d.y = bottomPumpY() - d.h * 0.15;
-                d.vy = -Math.min(260, Math.abs(d.vy) * 0.42);
-                d.vx += nx < 0.5 ? -160 : 160;
+            if (hitShell) {
+                var aimX = spanNow ? spanNow.cx : s.paddleX + OPEN_W * 0.5;
+                d.x = hitX;
+                d.y = hitY - 4;
+                d.vy = -Math.min(160, Math.abs(d.vy) * 0.32);
+                d.vx = clamp((aimX - d.x) * 2.2, -160, 160);
                 d.bumps += 1;
-                if (d.bumps > 2) s.loose.splice(i, 1);
+                if (d.bumps > 3) s.loose.splice(i, 1);
                 continue;
             }
             if (d.y > H + 36) s.loose.splice(i, 1);
@@ -931,7 +1141,6 @@
         var h = canvas.height;
         var pixels = g.getImageData(0, 0, w, h).data;
         var data = new Uint8Array(w * h);
-        var dark = new Uint8Array(w * h);
         var i;
         for (i = 0; i < w * h; i++) {
             var r = pixels[i * 4];
@@ -939,66 +1148,19 @@
             var b = pixels[i * 4 + 2];
             var a = pixels[i * 4 + 3];
             if (a < 40) continue;
-            if (r < 48 && gv < 48 && b < 48) dark[i] = 1;
-            else data[i] = 1;
+            if (r < 48 && gv < 48 && b < 48) continue;
+            data[i] = 1;
         }
-        var outline = new Uint8Array(w * h);
-        var stack = [];
-        function pushDark(idx) {
-            if (idx < 0 || idx >= dark.length || outline[idx] || !dark[idx]) return;
-            var x = idx % w;
-            var y = (idx - x) / w;
-            var edge = x === 0 || y === 0 || x === w - 1 || y === h - 1;
-            var neighborClear = false;
-            if (x > 0 && !data[idx - 1] && !dark[idx - 1]) neighborClear = true;
-            if (x + 1 < w && !data[idx + 1] && !dark[idx + 1]) neighborClear = true;
-            if (y > 0 && !data[idx - w] && !dark[idx - w]) neighborClear = true;
-            if (y + 1 < h && !data[idx + w] && !dark[idx + w]) neighborClear = true;
-            if (edge || neighborClear) stack.push(idx);
-        }
-        for (i = 0; i < dark.length; i++) pushDark(i);
-        while (stack.length) {
-            var idx = stack.pop();
-            if (outline[idx] || !dark[idx]) continue;
-            outline[idx] = 1;
-            var x = idx % w;
-            var y = (idx - x) / w;
-            if (x > 0) stack.push(idx - 1);
-            if (x + 1 < w) stack.push(idx + 1);
-            if (y > 0) stack.push(idx - w);
-            if (y + 1 < h) stack.push(idx + w);
-        }
-        var minX = w;
-        var minY = h;
-        var maxX = -1;
-        var maxY = -1;
-        var mouthCount = 0;
-        for (i = 0; i < dark.length; i++) {
-            if (!dark[i] || outline[i]) continue;
-            mouthCount++;
-            var x = i % w;
-            var y = (i - x) / w;
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
-            if (x > maxX) maxX = x;
-            if (y > maxY) maxY = y;
-        }
-        var mouth = jackHoleBox();
-        if (mouthCount > 40 && maxX > minX && maxY > minY) {
-            var lip = Math.max(2, Math.round((maxX - minX) * 0.04));
-            var xLo = Math.max(0, minX - lip);
-            var xHi = Math.min(w - 1, maxX + lip);
-            var yCut = Math.min(maxY, Math.ceil(mouth.y1 * h));
-            for (var y = 0; y <= yCut; y++) {
-                for (var x = xLo; x <= xHi; x++) data[y * w + x] = 0;
-            }
-        }
-        punchSlot(maskShell(), mouth);
-        return maskShell();
+        return { w: w, h: h, data: data, canvas: canvas };
+    }
 
-        function maskShell() {
-            return { w: w, h: h, data: data, canvas: canvas, mouth: mouth };
-        }
+    function shellSolid(s, x, y) {
+        var mask = pumpGfx && pumpGfx.bottom;
+        if (!mask || !mask.data) return false;
+        var mx = Math.floor((x - s.paddleX) * mask.w / OPEN_W);
+        var my = Math.floor((y - bottomPumpY()) * mask.h / OPEN_H);
+        if (mx < 0 || my < 0 || mx >= mask.w || my >= mask.h) return false;
+        return !!mask.data[my * mask.w + mx];
     }
 
     function applyOpenArt(img) {
@@ -1014,7 +1176,19 @@
             g.imageSmoothingEnabled = true;
             drawContainOn(g, img, OPEN_SRC_W, OPEN_SRC_H);
             var mask = maskOpenArt(open);
+            var cavity = buildCavity(open);
+            var views = bakeJackViews(open, cavity);
+            var cx;
+            for (cx = 0; cx < cavity.w; cx++) {
+                var col = cavity.cols[cx];
+                if (!col) continue;
+                var cy;
+                for (cy = 0; cy <= col.bot; cy++) mask.data[cy * cavity.w + cx] = 0;
+            }
             pumpGfx.bottom = mask;
+            pumpGfx.cavity = cavity;
+            pumpGfx.shell = views.shell;
+            pumpGfx.mouthFill = views.fill;
             pumpGfx.mouth = jackHoleBox();
         } catch (err) {
             pumpGfx.mouth = jackHoleBox();
@@ -1040,10 +1214,16 @@
         g.imageSmoothingEnabled = true;
         drawContainOn(g, img, BELLY_SRC_W, BELLY_SRC_H);
         if (!pumpGfx) buildPumpkin();
-        pumpGfx.top = maskFromCanvas(belly);
+        if (!pumpGfx) return;
+        // file:// taints the canvas after drawImage; keep the procedural moon mask.
+        try {
+            var top = maskFromCanvas(belly);
+            if (top && top.data) pumpGfx.top = top;
+        } catch (err) {}
     }
 
     function maskOverlaps(mask, lx, ly, dw, dh, rad) {
+        if (!mask || !mask.data || !dw || !dh) return false;
         var sx = mask.w / dw;
         var sy = mask.h / dh;
         var mx = lx * sx;
@@ -1067,6 +1247,7 @@
     }
 
     function maskContact(mask, lx, ly, dw, dh, rad) {
+        if (!mask || !mask.data || !dw || !dh) return null;
         var sx = mask.w / dw;
         var sy = mask.h / dh;
         var mx = lx * sx;
@@ -1122,11 +1303,7 @@
     }
 
     function overMouth(s, x, y) {
-        var box = jackHoleBox();
-        var nx = (x - s.paddleX) / OPEN_W;
-        var ny = (y - bottomPumpY()) / OPEN_H;
-        if (nx <= box.x0 || nx >= box.x1) return false;
-        return ny > box.y0 - 0.16 && ny < box.y1;
+        return inMouth(s, x, y);
     }
 
     function hitOpenReach(s, prevX, prevY) {
@@ -1141,6 +1318,9 @@
         var dy = s.ballY - nearY;
         if (dx * dx + dy * dy > rad * rad) return false;
         if (overMouth(s, s.ballX, s.ballY)) return false;
+        var span = mouthSpan(s);
+        var overOpening = span && s.ballX > span.left + rad && s.ballX < span.right - rad;
+        if (overOpening) return false;
         if (prevY + rad <= boxY + 1 && s.ballSpeedY > 0) {
             if (overMouth(s, s.ballX, boxY + 1)) return false;
             s.ballY = boxY - rad;
@@ -1196,7 +1376,54 @@
         return hitSideLayer(s, prevX, LAYER_FACE, -1);
     }
 
+    function hitHandOval(s, prevX, prevY, posed) {
+        var cx = posed.x + posed.w * 0.5;
+        var cy = posed.y + posed.h * 0.36;
+        var rx = Math.max(8, posed.w * 0.17);
+        var ry = Math.max(8, posed.h * 0.22);
+        var rad = s.ballR;
+        function overlaps(x, y) {
+            var dx = (x - cx) / (rx + rad * 0.65);
+            var dy = (y - cy) / (ry + rad * 0.65);
+            return dx * dx + dy * dy <= 1;
+        }
+        var dx = s.ballX - prevX;
+        var dy = s.ballY - prevY;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        var steps = Math.max(1, Math.ceil(dist / 3));
+        var hit = false;
+        var i;
+        for (i = 1; i <= steps; i++) {
+            var t = i / steps;
+            if (!overlaps(prevX + dx * t, prevY + dy * t)) continue;
+            s.ballX = prevX + dx * t;
+            s.ballY = prevY + dy * t;
+            hit = true;
+            break;
+        }
+        if (!hit && overlaps(s.ballX, s.ballY)) hit = true;
+        if (!hit) return false;
+        var nx = (s.ballX - cx) / (rx * rx);
+        var ny = (s.ballY - cy) / (ry * ry);
+        var len = Math.sqrt(nx * nx + ny * ny) || 1;
+        nx /= len;
+        ny /= len;
+        var guard = 0;
+        while (overlaps(s.ballX, s.ballY) && guard < 12) {
+            s.ballX += nx * 2.2;
+            s.ballY += ny * 2.2;
+            guard++;
+        }
+        var vn = s.ballSpeedX * nx + s.ballSpeedY * ny;
+        if (vn < 0) {
+            s.ballSpeedX -= 2 * vn * nx;
+            s.ballSpeedY -= 2 * vn * ny;
+        }
+        return true;
+    }
+
     function hitMask(s, prevX, prevY, mask, ox, oy, dw, dh, scoop) {
+        if (!mask || !mask.data) return false;
         var dx = s.ballX - prevX;
         var dy = s.ballY - prevY;
         var dist = Math.sqrt(dx * dx + dy * dy);
@@ -1223,6 +1450,14 @@
         dt = Math.min(MAX_DT, Math.max(0, dt));
         tickBursts(s, dt);
         moveBats(s, dt);
+        if (s.hand > 0) {
+            s.hand -= dt;
+            s.handAge = (s.handAge || 0) + dt;
+            if (s.hand <= 0) {
+                s.hand = 0;
+                s.handAge = 0;
+            }
+        }
         if (s.oneUp > 0) s.oneUp = Math.max(0, s.oneUp - dt);
         var travel = W * 0.78;
         if (input.aim && !input.stickX) s.paddleX = input.aimX - CROWN_W / 2;
@@ -1304,8 +1539,37 @@
             }
         }
 
-        var swallowed = !s.over && swallowHole(s, prevX, prevY);
+        var handHit = false;
+        var posed = handBox(s);
+        if (posed && !s.inMouth && !s.over) {
+            if (posed.art.mask) {
+                handHit = hitMask(s, prevX, prevY, posed.art.mask, posed.x, posed.y, posed.w, posed.h, false);
+            } else {
+                handHit = hitHandOval(s, prevX, prevY, posed);
+            }
+        }
+        var swallowed = false;
+        if (!s.over && s.inMouth) {
+            var stay = mouthColumn(s, s.ballX);
+            if (!stay || s.ballY >= stay.bot - 0.4) swallowed = true;
+        } else if (!s.over && !handHit && s.ballSpeedY > 0) {
+            var samples = 8;
+            var si;
+            for (si = 1; si <= samples; si++) {
+                var st = si / samples;
+                var sx = prevX + (s.ballX - prevX) * st;
+                var sy = prevY + (s.ballY - prevY) * st;
+                if (!inMouth(s, sx, sy)) continue;
+                s.inMouth = true;
+                s.ballX = sx;
+                s.ballY = sy;
+                s.ballSpeedY = 120;
+                s.ballSpeedX *= 0.12;
+                break;
+            }
+        }
         if (swallowed) {
+            s.inMouth = false;
             s.lives -= 1;
             if (s.lives <= 0) {
                 s.over = true;
@@ -1317,7 +1581,7 @@
         }
         if (pumpGfx) {
             var hitTop = !s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.top, bellyLeft(s.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH, false);
-            var overHole = overMouth(s, s.ballX, s.ballY) || overMouth(s, prevX, prevY);
+            var overHole = s.inMouth || overMouth(s, s.ballX, s.ballY) || overMouth(s, prevX, prevY);
             var hitBottom = !overHole && !s.over && !swallowed && hitMask(s, prevX, prevY, pumpGfx.bottom, s.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh, false);
             if (hitTop || hitBottom) events.push('bounce');
             else if (!s.over && !swallowed && hitOpenReach(s, prevX, prevY)) events.push('bounce');
@@ -1618,6 +1882,19 @@
             kiss: 'art/kiss.png?v=2'
         };
 
+        function decodeHandMask(pack) {
+            if (!pack || !pack.bits || !pack.w || !pack.h) return null;
+            var bin;
+            try { bin = atob(pack.bits); } catch (err) { return null; }
+            var data = new Uint8Array(pack.w * pack.h);
+            var i;
+            for (i = 0; i < data.length; i++) {
+                var byte = bin.charCodeAt(i >> 3) || 0;
+                data[i] = (byte >> (7 - (i & 7))) & 1;
+            }
+            return { w: pack.w, h: pack.h, data: data };
+        }
+
         function loadCandyArt() {
             var kind;
             for (kind in candyFiles) {
@@ -1631,13 +1908,57 @@
                 openSprite = open;
                 applyOpenArt(open);
             };
-            open.src = 'art/pumpkin-open.png?v=5';
+            open.src = 'art/pumpkin-open.png?v=6';
             var belly = new Image();
             belly.onload = function () {
                 bellySprite = belly;
                 applyBellyArt(belly);
             };
             belly.src = 'art/moon-bottom.png?v=2';
+            var handFiles = [
+                'art/zombie-hand-fist/ghoul-1-emerge.png?v=2',
+                'art/zombie-hand-fist/ghoul-2-reach.png?v=2',
+                'art/zombie-hand-fist/ghoul-3-curl.png?v=2',
+                'art/zombie-hand-fist/ghoul-4-midway.png?v=2',
+                'art/zombie-hand-fist/ghoul-5-fist.png?v=2'
+            ];
+            var hi;
+            for (hi = 0; hi < handFiles.length; hi++) {
+                (function (slot, src) {
+                    var img = new Image();
+                    img.onload = function () {
+                        var pack = window.HAND_MASKS && window.HAND_MASKS[slot];
+                        var mask = pack ? decodeHandMask(pack) : null;
+                        var opaqueW = (pack && pack.opaqueW) || Math.round((img.naturalWidth || 400) * 0.34);
+                        if (!mask) {
+                            try {
+                                var canvas = document.createElement('canvas');
+                                canvas.width = img.naturalWidth;
+                                canvas.height = img.naturalHeight;
+                                var g = canvas.getContext('2d');
+                                g.drawImage(img, 0, 0);
+                                mask = maskFromCanvas(canvas);
+                                var minX = mask.w;
+                                var maxX = 0;
+                                var n = 0;
+                                var p;
+                                for (p = 0; p < mask.data.length; p++) {
+                                    if (!mask.data[p]) continue;
+                                    var x = p % mask.w;
+                                    if (x < minX) minX = x;
+                                    if (x > maxX) maxX = x;
+                                    n++;
+                                }
+                                if (n) opaqueW = maxX - minX + 1;
+                            } catch (err) {
+                                mask = null;
+                            }
+                        }
+                        handArt[slot] = { img: img, mask: mask, opaqueW: opaqueW };
+                    };
+                    img.src = src;
+                })(hi, handFiles[hi]);
+            }
         }
 
         var openSprite = null;
@@ -2010,16 +2331,6 @@
                     drawCandy(brickBox(state, c, row), brick.candy);
                 }
             }
-            if (state.loose) {
-                for (var li = 0; li < state.loose.length; li++) {
-                    var drop = state.loose[li];
-                    ctx.save();
-                    ctx.translate(drop.x + (drop.ox || 0), drop.y + (drop.oy || 0));
-                    ctx.rotate(drop.spin || 0);
-                    drawCandy({ x: -drop.w / 2, y: -drop.h / 2, w: drop.w, h: drop.h }, drop.candy);
-                    ctx.restore();
-                }
-            }
             function fillPoly(poly, color) {
                 ctx.fillStyle = color;
                 ctx.beginPath();
@@ -2028,29 +2339,14 @@
                 ctx.closePath();
                 ctx.fill();
             }
-            if (pumpGfx || bellySprite || openSprite) {
-                var smooth = ctx.imageSmoothingEnabled;
-                ctx.imageSmoothingEnabled = true;
-                if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
-                if (bellySprite && bellySprite.complete && bellySprite.naturalWidth) {
-                    drawContain(bellySprite, bellyLeft(state.paddleX), HANG_Y, BELLY_W, BELLY_H);
-                } else if (pumpGfx) {
-                    ctx.drawImage(pumpGfx.top.canvas, bellyLeft(state.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH);
+            function drawBall() {
+                var depth = 0;
+                if (state.inMouth) {
+                    var col = mouthColumn(state, state.ballX);
+                    if (col) depth = clamp((state.ballY - col.top) / ((col.bot - col.top) || 1), 0, 1);
                 }
-                if (openSprite && openSprite.complete && openSprite.naturalWidth) {
-                    drawContain(openSprite, state.paddleX, bottomPumpY(), OPEN_W, OPEN_H);
-                } else if (pumpGfx) {
-                    ctx.drawImage(pumpGfx.bottom.canvas, state.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh);
-                }
-                ctx.imageSmoothingEnabled = smooth;
-            } else {
-                fillPoly(topPoints(state.paddleX), PUMPKIN);
-                fillPoly(crownPoints(state.paddleX), PUMPKIN);
-            }
-            if (state.bats) {
-                for (var bi2 = 0; bi2 < state.bats.length; bi2++) drawBat(state.bats[bi2]);
-            }
-            if (!(state.gulp > 0)) {
+                ctx.save();
+                ctx.globalAlpha = 1 - depth * 0.85;
                 ctx.fillStyle = '#FFE7A0';
                 ctx.beginPath();
                 ctx.arc(state.ballX, state.ballY, state.ballR, 0, Math.PI * 2);
@@ -2059,6 +2355,97 @@
                 ctx.beginPath();
                 ctx.arc(state.ballX - 2, state.ballY - 2, state.ballR * 0.35, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.restore();
+            }
+            function drawLoose(drop, sinking) {
+                var dropDepth = 0;
+                var scale = 1;
+                if (sinking && drop.sink) {
+                    var dropCol = mouthColumn(state, drop.x);
+                    if (dropCol) dropDepth = clamp((drop.y - dropCol.top) / ((dropCol.bot - dropCol.top) || 1), 0, 1);
+                    scale = 0.58;
+                }
+                var dw = drop.w * scale;
+                var dh = drop.h * scale;
+                ctx.save();
+                ctx.globalAlpha = sinking ? (1 - Math.max(0, dropDepth - 0.25) * 1.15) : 1;
+                ctx.translate(drop.x + (drop.ox || 0), drop.y + (drop.oy || 0));
+                ctx.rotate(drop.spin || 0);
+                drawCandy({ x: -dw / 2, y: -dh / 2, w: dw, h: dh }, drop.candy);
+                ctx.restore();
+            }
+            var punched = !!(pumpGfx && pumpGfx.shell);
+            function drawSinking() {
+                if (!state.loose) return;
+                var li;
+                for (li = 0; li < state.loose.length; li++) {
+                    if (state.loose[li].sink) drawLoose(state.loose[li], true);
+                }
+            }
+            if (punched && pumpGfx.mouthFill) {
+                ctx.drawImage(pumpGfx.mouthFill, state.paddleX, bottomPumpY(), OPEN_W, OPEN_H);
+            }
+            if (punched) {
+                drawSinking();
+                if (!(state.gulp > 0) && state.inMouth) drawBall();
+            }
+            if (pumpGfx || bellySprite || openSprite) {
+                var smooth = ctx.imageSmoothingEnabled;
+                ctx.imageSmoothingEnabled = true;
+                if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
+                if (bellySprite && bellySprite.complete && bellySprite.naturalWidth) {
+                    drawContain(bellySprite, bellyLeft(state.paddleX), HANG_Y, BELLY_W, BELLY_H);
+                } else if (pumpGfx && pumpGfx.top && pumpGfx.top.canvas) {
+                    ctx.drawImage(pumpGfx.top.canvas, bellyLeft(state.paddleX), HANG_Y, pumpGfx.topW, pumpGfx.topH);
+                }
+                if (pumpGfx && pumpGfx.shell) {
+                    ctx.drawImage(pumpGfx.shell, state.paddleX, bottomPumpY(), OPEN_W, OPEN_H);
+                } else if (openSprite && openSprite.complete && openSprite.naturalWidth) {
+                    drawContain(openSprite, state.paddleX, bottomPumpY(), OPEN_W, OPEN_H);
+                } else if (pumpGfx && pumpGfx.bottom && pumpGfx.bottom.canvas) {
+                    ctx.drawImage(pumpGfx.bottom.canvas, state.paddleX, bottomPumpY(), pumpGfx.dw, pumpGfx.dh);
+                }
+                ctx.imageSmoothingEnabled = smooth;
+            } else {
+                fillPoly(topPoints(state.paddleX), PUMPKIN);
+                fillPoly(crownPoints(state.paddleX), PUMPKIN);
+            }
+            if (!punched) {
+                var hole = mouthSpan(state);
+                if (hole) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(hole.left, hole.top, hole.w, Math.max(1, hole.bot - hole.top));
+                    ctx.clip();
+                    drawSinking();
+                    if (!(state.gulp > 0) && state.inMouth) drawBall();
+                    ctx.restore();
+                }
+            }
+            if (state.bats) {
+                for (var bi2 = 0; bi2 < state.bats.length; bi2++) drawBat(state.bats[bi2]);
+            }
+            if (state.loose) {
+                for (var lj = 0; lj < state.loose.length; lj++) {
+                    if (!state.loose[lj].sink) drawLoose(state.loose[lj], false);
+                }
+            }
+            if (!(state.gulp > 0) && !state.inMouth) drawBall();
+            var posed = handBox(state);
+            if (posed && posed.art.img && posed.art.img.complete && posed.art.img.naturalWidth) {
+                var span = mouthSpan(state);
+                var smoothHand = ctx.imageSmoothingEnabled;
+                ctx.save();
+                if (span) {
+                    ctx.beginPath();
+                    ctx.rect(span.left - 6, 0, span.w + 12, span.bot + 2);
+                    ctx.clip();
+                }
+                ctx.imageSmoothingEnabled = true;
+                if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(posed.art.img, posed.x, posed.y, posed.w, posed.h);
+                ctx.restore();
+                ctx.imageSmoothingEnabled = smoothHand;
             }
             ctx.fillStyle = '#fff';
             ctx.font = '22px "Press Start 2P", monospace';
@@ -2145,6 +2532,7 @@
             show(pauseMenu, false);
             show(help, false);
             show(result, false);
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
             document.documentElement.classList.add('playing');
             document.documentElement.setAttribute('data-mode', 'hallow');
             clearPadFocus();
@@ -2160,6 +2548,15 @@
                 x: (e.clientX - rect.left) * (rect.width ? canvas.width / rect.width : 1),
                 y: (e.clientY - rect.top) * (rect.height ? canvas.height / rect.height : 1)
             };
+        }
+
+        function startHand() {
+            if (!running || paused || !state || state.over) return;
+            if (state.hand > 0) return;
+            unlockAudio();
+            state.hand = HAND_LIFE;
+            state.handAge = 0;
+            tone(90, 0.14, 'sawtooth', 0.28);
         }
 
         function togglePause() {
@@ -2356,13 +2753,24 @@
             requestAnimationFrame(padFrame);
         }
 
+        function isSpace(e) {
+            return e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar' || e.keyCode === 32;
+        }
+        document.addEventListener('keydown', function (e) {
+            if (!isSpace(e)) return;
+            e.preventDefault();
+            if (e.repeat) return;
+            if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+            if (running && !paused && !currentPanel()) startHand();
+        }, true);
         document.addEventListener('keydown', function (e) {
             var k = e.key.toLowerCase();
+            if (isSpace(e)) k = ' ';
             keys[k] = true;
             if (k === 'arrowup' || k === 'arrowdown' || k === 'arrowleft' || k === 'arrowright' || k === ' ') e.preventDefault();
             if (e.repeat) return;
             if (k === 'm') toggleMute();
-            if ((k === 'p' || k === 'escape' || k === ' ') && running) togglePause();
+            if ((k === 'p' || k === 'escape') && running) togglePause();
         });
         document.addEventListener('keyup', function (e) {
             keys[e.key.toLowerCase()] = false;
@@ -2409,6 +2817,7 @@
         }
 
         bind('btnStart', startGame);
+        bind('btnHand', startHand);
         bind('btnHelp', function () {
             tone(600, 0.1, 'triangle', 0.3);
             show(help, true);
