@@ -219,6 +219,7 @@
             ballSpeedX: 0,
             ballSpeedY: 0,
             score: 0,
+            cleared: 0,
             lives: 3,
             nextLife: LIFE_EVERY,
             oneUp: 0,
@@ -228,6 +229,8 @@
             hold: 0,
             over: false,
             bursts: [],
+            loose: [],
+            pops: [],
             bats: makeBats(),
             batTime: 0
         };
@@ -460,6 +463,97 @@
             tilt: (Math.random() - 0.5) * 0.4,
             bits: bits
         });
+        spawnLoose(s, box, brick);
+    }
+
+    function spawnLoose(s, box, brick) {
+        if (!s.loose) s.loose = [];
+        s.loose.push({
+            x: box.x + box.w * 0.5,
+            y: box.y + box.h * 0.5,
+            w: box.w,
+            h: box.h,
+            candy: brick.candy,
+            vx: (Math.random() - 0.5) * 36,
+            vy: 0,
+            shake: 0.38,
+            age: 0,
+            spin: 0,
+            ox: 0,
+            oy: 0,
+            bumps: 0
+        });
+    }
+
+    function looseInHole(s, x, y) {
+        var box = jackHoleBox();
+        var nx = (x - s.paddleX) / OPEN_W;
+        var ny = (y - bottomPumpY()) / OPEN_H;
+        return nx > box.x0 && nx < box.x1 && ny > box.y0 && ny < box.y1;
+    }
+
+    function tickLoose(s, dt) {
+        var caught = 0;
+        if (!s.loose) s.loose = [];
+        if (!s.pops) s.pops = [];
+        var i;
+        for (i = s.pops.length - 1; i >= 0; i--) {
+            s.pops[i].age += dt;
+            s.pops[i].y -= 36 * dt;
+            if (s.pops[i].age >= s.pops[i].life) s.pops.splice(i, 1);
+        }
+        for (i = s.loose.length - 1; i >= 0; i--) {
+            var d = s.loose[i];
+            var prevX = d.x;
+            var prevY = d.y;
+            d.age += dt;
+            if (d.shake > 0) {
+                d.shake -= dt;
+                var wobble = Math.max(0, d.shake);
+                d.ox = Math.sin(d.age * 52) * (5 + wobble * 22);
+                d.oy = Math.cos(d.age * 37) * 3;
+                d.spin = Math.sin(d.age * 46) * 0.22;
+                continue;
+            }
+            d.ox = 0;
+            d.oy = 0;
+            d.vy += 980 * dt;
+            if (d.vy > 720) d.vy = 720;
+            d.x += d.vx * dt;
+            d.y += d.vy * dt;
+            d.spin += dt * 1.4;
+            var steps = 6;
+            var n;
+            var caughtHere = false;
+            for (n = 1; n <= steps; n++) {
+                var t = n / steps;
+                if (looseInHole(s, prevX + (d.x - prevX) * t, prevY + (d.y - prevY) * t)) {
+                    caughtHere = true;
+                    break;
+                }
+            }
+            if (caughtHere) {
+                s.score += 10;
+                s.pops.push({ x: d.x, y: d.y - 8, age: 0, life: 0.7 });
+                s.loose.splice(i, 1);
+                caught++;
+                continue;
+            }
+            var mouth = jackHoleBox();
+            var nx = (d.x - s.paddleX) / OPEN_W;
+            var ny = (d.y - bottomPumpY()) / OPEN_H;
+            var onBody = nx > 0.04 && nx < 0.96 && (nx <= mouth.x0 || nx >= mouth.x1) && ny > -0.02 && ny < 0.55 && d.vy > 0;
+            if (onBody) {
+                d.y = bottomPumpY() - d.h * 0.15;
+                d.vy = -Math.min(260, Math.abs(d.vy) * 0.42);
+                d.vx += nx < 0.5 ? -160 : 160;
+                d.bumps += 1;
+                if (d.bumps > 2) s.loose.splice(i, 1);
+                continue;
+            }
+            if (d.y > H + 36) s.loose.splice(i, 1);
+        }
+        return caught;
     }
 
     function tickBursts(s, dt) {
@@ -638,8 +732,10 @@
             circleHitsPoly(topPoints(s.paddleX), s.ballX, s.ballY, r);
     }
 
+    var PUMP_DROP = 50;
+
     function bottomPumpY() {
-        return H - OPEN_H;
+        return H - OPEN_H + PUMP_DROP;
     }
 
     function bellyLeft(paddleX) {
@@ -1137,6 +1233,7 @@
         var elapsed = dt > 0 ? dt : 0.016;
         s.paddleVx = clamp((s.paddleX - s.prevPaddleX) / elapsed, -W * 1.15, W * 1.15);
         s.prevPaddleX = s.paddleX;
+        if (tickLoose(s, dt)) events.push('treat');
 
         if (s.hold > 0) {
             s.hold -= dt;
@@ -1186,8 +1283,9 @@
                 var box = brickBox(s, c, row);
                 if (!resolveBrick(s, box)) continue;
                 brick.status = 0;
+                s.cleared = (s.cleared || 0) + 1;
                 s.score += 1;
-                if (s.score >= s.nextLife) {
+                if (s.cleared >= s.nextLife) {
                     s.nextLife += LIFE_EVERY;
                     if (s.lives < LIFE_CAP) {
                         s.lives += 1;
@@ -1198,7 +1296,7 @@
                 spawnBurst(s, box, brick);
                 events.push('brick');
                 hit = true;
-                if (s.score >= s.cols * s.rows) {
+                if (s.cleared >= s.cols * s.rows) {
                     s.over = true;
                     events.push('win');
                 }
@@ -1326,6 +1424,7 @@
             if (name === 'bounce') tone(800, 0.05, 'square', 0.2);
             else if (name === 'paddle') tone(400, 0.08, 'sawtooth', 0.4);
             else if (name === 'brick') tone(1000, 0.06, 'square', 0.3);
+            else if (name === 'treat') tone(1320, 0.07, 'square', 0.28);
             else if (name === 'gulp') tone(180, 0.08, 'triangle', 0.35);
             else if (name === 'drop') tone(520, 0.06, 'square', 0.25);
             else if (name === 'extra') tone(880, 0.08, 'square', 0.35);
@@ -1911,6 +2010,16 @@
                     drawCandy(brickBox(state, c, row), brick.candy);
                 }
             }
+            if (state.loose) {
+                for (var li = 0; li < state.loose.length; li++) {
+                    var drop = state.loose[li];
+                    ctx.save();
+                    ctx.translate(drop.x + (drop.ox || 0), drop.y + (drop.oy || 0));
+                    ctx.rotate(drop.spin || 0);
+                    drawCandy({ x: -drop.w / 2, y: -drop.h / 2, w: drop.w, h: drop.h }, drop.candy);
+                    ctx.restore();
+                }
+            }
             function fillPoly(poly, color) {
                 ctx.fillStyle = color;
                 ctx.beginPath();
@@ -1967,6 +2076,18 @@
             ctx.font = '22px "Press Start 2P", monospace';
             ctx.textAlign = 'center';
             ctx.fillText(String(state.score), W / 2, 16);
+            if (state.pops) {
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = '16px "Press Start 2P", monospace';
+                for (var pi = 0; pi < state.pops.length; pi++) {
+                    var pop = state.pops[pi];
+                    ctx.globalAlpha = Math.max(0, 1 - pop.age / pop.life);
+                    ctx.fillStyle = '#F6D000';
+                    ctx.fillText('+10', pop.x, pop.y);
+                }
+                ctx.globalAlpha = 1;
+            }
             if (state.bursts) {
                 for (var bi = 0; bi < state.bursts.length; bi++) drawBurst(state.bursts[bi]);
             }
