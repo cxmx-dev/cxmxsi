@@ -562,7 +562,7 @@
 
     function handCutY(span) {
         // The hole box runs down to the front lip. Stop inside the black.
-        return span.top + (span.bot - span.top) * 0.55;
+        return Math.max(span.top + 4, span.bot - 2);
     }
 
     function handBox(s) {
@@ -1918,7 +1918,7 @@
                 openSprite = open;
                 applyOpenArt(open);
             };
-            open.src = 'art/pumpkin-open.png?v=6';
+            open.src = 'art/pumpkin-open.png?v=7';
             var belly = new Image();
             belly.onload = function () {
                 bellySprite = belly;
@@ -1926,11 +1926,11 @@
             };
             belly.src = 'art/moon-bottom.png?v=2';
             var handFiles = [
-                'art/zombie-hand-fist/ghoul-1-emerge.png?v=5',
-                'art/zombie-hand-fist/ghoul-2-reach.png?v=5',
-                'art/zombie-hand-fist/ghoul-3-curl.png?v=5',
-                'art/zombie-hand-fist/ghoul-4-midway.png?v=5',
-                'art/zombie-hand-fist/ghoul-5-fist.png?v=5'
+                'art/zombie-hand-fist/ghoul-1-emerge.png?v=6',
+                'art/zombie-hand-fist/ghoul-2-reach.png?v=6',
+                'art/zombie-hand-fist/ghoul-3-curl.png?v=6',
+                'art/zombie-hand-fist/ghoul-4-midway.png?v=6',
+                'art/zombie-hand-fist/ghoul-5-fist.png?v=6'
             ];
             var hi;
             for (hi = 0; hi < handFiles.length; hi++) {
@@ -2452,7 +2452,8 @@
                     ctx.rect(span.left, 0, span.w, posed.cut);
                     ctx.clip();
                 }
-                ctx.imageSmoothingEnabled = false;
+                ctx.imageSmoothingEnabled = true;
+                if (ctx.imageSmoothingQuality) ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(posed.art.img, posed.x, posed.y, posed.w, posed.h);
                 ctx.restore();
                 ctx.imageSmoothingEnabled = smoothHand;
