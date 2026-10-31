@@ -1,0 +1,25 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name=theme-color content="#008080"><title>WinDefAddExeExclusion</title><style>
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%;touch-action:manipulation}body{margin:0;background:#008080;color:#000;font:15px/1.45 Tahoma,"MS Sans Serif",Verdana,sans-serif;min-height:100vh;padding:16px 10px 56px;-webkit-tap-highlight-color:transparent}
+.w{max-width:760px;margin:0 auto;background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:1px 1px 0 #000}
+.t{background:linear-gradient(90deg,#000080,#1084d0);color:#fff;font-weight:700;padding:4px 8px}.c{padding:14px 16px}
+h2{font-size:16px;margin:16px 0 6px}.warn{background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;padding:10px 12px}.warn li{margin:4px 0}
+a.dl{display:inline-block;margin:6px 0;padding:12px 18px;min-height:44px;background:#c0c0c0;color:#000;text-decoration:none;font-weight:700;border:2px solid;border-color:#fff #404040 #404040 #fff}a.dl:active{border-color:#404040 #fff #fff #404040}
+code{font:13px Consolas,monospace;word-break:break-all;background:#fff;padding:1px 4px}.f{position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:12px;color:#fff;opacity:.85}
+</style></head><body><div class=w><div class=t>WinDefAddExeExclusion</div><div class=c>
+<p>A small, portable Windows 98-style app for adding or removing <b>individual</b> <code>.exe</code> files from the Windows Defender exclusion list. Made for your own freshly built programs (PyInstaller, cargo, etc.) that Defender keeps flagging.</p>
+<h2>Read this first</h2><ul class=warn>
+<li><b>The tool is unsigned.</b> It is a one-file PyInstaller build with no code-signing certificate.</li>
+<li><b>It lowers Windows Defender protection.</b> Every exclusion tells Defender to stop scanning that file, even if it is later replaced or infected. It needs Administrator.</li>
+<li><b>Antivirus and SmartScreen may flag or quarantine it.</b> That is common for unsigned PyInstaller apps, but you should still judge it for yourself.</li>
+<li><b>Exclude only specific .exe files you built or fully trust. Never exclude folders or drives.</b> Remove exclusions when you no longer need them.</li>
+<li><b>You can rebuild it from source.</b> The kit includes <code>WinDefAddExeExclusion.py</code>, the manifest, and <code>CreateWinDefAddExeExclusion.ps1</code>, which builds your own copy with PyInstaller.</li>
+</ul>
+<h2>Download</h2>
+<a class=dl href="WinDefAddExeExclusion-kit.zip" download>Download kit (.zip, 12.8 MB)</a>
+<p>Kit SHA-256:<br><code>B035D98E0198BE1DE906EAB45CC0E8064238D7F1C6CE5877FA7F37690016512A</code></p>
+<p>App (<code>WinDefAddExeExclusion.exe</code>) SHA-256:<br><code>1331CB27D54EA87D29BA65B082BB37AB3E1697F9C6B7FB617BD025DF4D7552A0</code></p>
+<p>Check in PowerShell: <code>Get-FileHash .\WinDefAddExeExclusion-kit.zip</code></p>
+<p>Inside: the .exe, its manifest, the Python source, the build script, and a README. Windows 10/11.</p>
+<h2>Better than an exclusion</h2><p>If you can, report a false positive to Microsoft or sign your builds instead. An exclusion should be a last resort.</p>
+</div></div><div class=f>&copy; 2026 cxmx-dev. All rights reserved.</div>
+<script>document.addEventListener('contextmenu',e=>e.preventDefault());</script></body></html>
