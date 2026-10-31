@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070612">
+  <title>Racing Game 2026</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico">
+  <script src="js/device.js?v=nl98"></script>
+  <link rel="stylesheet" href="css/game.css?v=nl98">
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="hud">
+    <div id="place"><b>4</b><span>th</span></div>
+    <div id="lap">LAP 1/3</div>
+    <div id="speed"><b>0</b><small>mph</small></div>
+    <div id="turbos" aria-label="Turbo charges">
+      <canvas class="turbo-slot" width="72" height="72"></canvas>
+      <canvas class="turbo-slot" width="72" height="72"></canvas>
+      <canvas class="turbo-slot" width="72" height="72"></canvas>
+      <span id="turbo-read"></span>
+    </div>
+    <div id="meter"><i id="bar"></i></div>
+    <p id="barlabel">DRIFT</p>
+    <p id="lookhint" hidden></p>
+    <p id="build">NL-98</p>
+  </div>
+  <p id="banner" hidden>LAP 2</p>
+  <p id="wrong" hidden>WRONG WAY</p>
+  <p id="countdown" hidden>3</p>
+  <p id="toast" hidden>Controller connected</p>
+  <pre id="probe" hidden></pre>
+  <canvas id="map" width="240" height="240" aria-label="Track map"></canvas>
+  <div id="touch">
+    <div id="stick" role="slider" aria-label="Steer" aria-valuemin="-1" aria-valuemax="1">
+      <div id="nub"></div>
+    </div>
+    <button type="button" id="btn-cam">Recenter</button>
+    <div id="pads">
+      <button type="button" id="btn-turbo" aria-label="Turbo"><canvas id="turbo-key" width="72" height="72"></canvas></button>
+      <button type="button" id="btn-brake">Brake</button>
+      <button type="button" id="btn-drift">Drift</button>
+      <button type="button" id="btn-gas">Gas</button>
+    </div>
+    <video id="turbo-vid" src="assets/turbo.mp4?v=nl98" muted loop playsinline autoplay preload="auto"></video>
+  </div>
+  <div class="top-actions">
+    <button type="button" id="btn-pause">Pause</button>
+    <button type="button" id="btn-mute">Sound</button>
+  </div>
+  <div id="overlay">
+    <div class="card menu-card" id="menu">
+      <div class="logo" aria-label="Racing Game 2026">
+        <span class="logo-word">RACING</span>
+        <span class="logo-word">GAME</span>
+        <span class="logo-word">2026</span>
+      </div>
+      <label class="name-row" for="player-name">YOUR NAME
+        <input id="player-name" maxlength="12" autocomplete="nickname" enterkeyhint="done" spellcheck="false" value="Player 1" placeholder="Player 1">
+      </label>
+      <p id="menu-status"></p>
+      <div id="menu-main">
+        <div class="edit-row" id="course-pick">
+          <button type="button" id="course-city">NIGHT CITY</button>
+          <button type="button" id="course-mine">MY TRACK</button>
+          <button type="button" id="course-drift">DRIFT CITY</button>
+        </div>
+        <button type="button" id="btn-stunt">STUNTBOX</button>
+        <button type="button" id="btn-1p">1 PLAYER</button>
+        <button type="button" id="btn-local">LOCAL WIFI</button>
+        <button type="button" id="btn-world">WORLDWIDE</button>
+        <button type="button" id="btn-options">OPTIONS</button>
+        <button type="button" id="btn-edit">TRACK EDIT</button>
+      </div>
+      <div id="menu-edit" hidden>
+        <h2 id="edit-title">TRACK EDIT</h2>
+        <p id="edit-key"><span class="edit-piece">PIECES</span><span class="edit-close">WAY HOME</span><span class="edit-start">START</span><span class="edit-selected">SELECTED</span></p>
+        <canvas id="edit-map" width="320" height="180" data-piece="bright" data-close="dim" data-start="mark" data-selected="piece"></canvas>
+        <div class="edit-row">
+          <button type="button" id="edit-straight">STRAIGHT</button>
+          <button type="button" id="edit-left">LEFT</button>
+          <button type="button" id="edit-right">RIGHT</button>
+        </div>
+        <div class="edit-row">
+          <button type="button" id="edit-tight">MEDIUM</button>
+          <button type="button" id="edit-up">UP</button>
+          <button type="button" id="edit-down">DOWN</button>
+          <button type="button" id="edit-del">REMOVE</button>
+        </div>
+        <div class="edit-dock">
+          <button type="button" id="edit-loop">STARTER LOOP</button>
+          <button type="button" id="edit-race">RACE</button>
+          <button type="button" id="edit-back">BACK</button>
+        </div>
+        <div id="edit-list"></div>
+      </div>
+      <div id="menu-options" hidden>
+        <label class="opt-line" for="opt-vol">VOLUME
+          <input id="opt-vol" class="opt-range js-vol" type="range" min="0" max="100" value="70" step="1">
+        </label>
+        <label class="opt-line" for="opt-drift">DRIFT RISE
+          <input id="opt-drift" class="opt-range js-drift" type="range" min="0" max="5" value="0.5" step="0.25">
+          <div class="drift-ends"><span>Low</span><span>High</span></div>
+          <div class="drift-dashes" id="drift-dashes" aria-hidden="true"></div>
+        </label>
+        <label class="opt-line" for="opt-code">CODE
+          <input id="opt-code" class="js-code" maxlength="12" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="----">
+        </label>
+        <p class="sky-label">SKY</p>
+        <div class="sky-grid">
+          <label class="opt-check" for="opt-sky-morning">
+            <input id="opt-sky-morning" class="js-sky" type="checkbox" data-sky="morning">
+            <span>MORNING</span>
+          </label>
+          <label class="opt-check" for="opt-sky-afternoon">
+            <input id="opt-sky-afternoon" class="js-sky" type="checkbox" data-sky="afternoon">
+            <span>AFTERNOON</span>
+          </label>
+          <label class="opt-check" for="opt-sky-night">
+            <input id="opt-sky-night" class="js-sky" type="checkbox" data-sky="night" checked>
+            <span>NIGHT</span>
+          </label>
+          <label class="opt-check" for="opt-sky-cycle">
+            <input id="opt-sky-cycle" class="js-sky" type="checkbox" data-sky="cycle">
+            <span>CYCLE</span>
+          </label>
+        </div>
+        <p class="sky-label">PAINT</p>
+        <div class="sky-grid">
+          <label class="opt-check" for="opt-paint-red">
+            <input id="opt-paint-red" class="js-paint" type="checkbox" data-paint="red" checked>
+            <span>RED</span>
+          </label>
+          <label class="opt-check" for="opt-paint-cyan">
+            <input id="opt-paint-cyan" class="js-paint" type="checkbox" data-paint="cyan">
+            <span>CYAN</span>
+          </label>
+        </div>
+        <label class="opt-check" for="opt-sound">
+          <input id="opt-sound" class="js-sound" type="checkbox" checked>
+          <span>SOUND</span>
+        </label>
+        <button type="button" id="opt-back">BACK</button>
+      </div>
+      <div id="menu-world" hidden>
+        <button type="button" id="btn-host">HOST</button>
+        <label class="opt-line" for="room-join">CODE
+          <input id="room-join" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="----">
+        </label>
+        <button type="button" id="btn-join">JOIN</button>
+        <button type="button" id="btn-world-back">BACK</button>
+      </div>
+      <div id="menu-lobby" hidden>
+        <p id="room-code" hidden></p>
+        <ul id="lobby-list"></ul>
+        <button type="button" id="lobby-start" hidden>START RACE</button>
+        <button type="button" id="lobby-cancel">BACK</button>
+      </div>
+      <p class="menu-build">NL-98</p>
+    </div>
+    <div class="card" id="race-card" hidden>
+      <h1 id="card-title">RACING GAME 2026</h1>
+      <button type="button" id="primary">Start race</button>
+      <button type="button" id="secondary" hidden>Restart</button>
+      <div id="pause-options" hidden>
+        <label class="opt-line" for="pause-vol">VOLUME
+          <input id="pause-vol" class="opt-range js-vol" type="range" min="0" max="100" value="70" step="1">
+        </label>
+        <label class="opt-line" for="pause-drift">DRIFT RISE
+          <input id="pause-drift" class="opt-range js-drift" type="range" min="0" max="5" value="0.5" step="0.25">
+          <div class="drift-ends"><span>Low</span><span>High</span></div>
+          <div class="drift-dashes" aria-hidden="true"></div>
+        </label>
+        <label class="opt-line" for="pause-code">CODE
+          <input id="pause-code" class="js-code" maxlength="12" autocomplete="off" spellcheck="false" enterkeyhint="go" placeholder="----">
+        </label>
+        <p class="sky-label">SKY</p>
+        <div class="sky-grid">
+          <label class="opt-check" for="pause-sky-morning">
+            <input id="pause-sky-morning" class="js-sky" type="checkbox" data-sky="morning">
+            <span>MORNING</span>
+          </label>
+          <label class="opt-check" for="pause-sky-afternoon">
+            <input id="pause-sky-afternoon" class="js-sky" type="checkbox" data-sky="afternoon">
+            <span>AFTERNOON</span>
+          </label>
+          <label class="opt-check" for="pause-sky-night">
+            <input id="pause-sky-night" class="js-sky" type="checkbox" data-sky="night" checked>
+            <span>NIGHT</span>
+          </label>
+          <label class="opt-check" for="pause-sky-cycle">
+            <input id="pause-sky-cycle" class="js-sky" type="checkbox" data-sky="cycle">
+            <span>CYCLE</span>
+          </label>
+        </div>
+        <label class="opt-check" for="pause-sound">
+          <input id="pause-sound" class="js-sound" type="checkbox" checked>
+          <span>SOUND</span>
+        </label>
+        <button type="button" id="pause-menu">Main Menu</button>
+      </div>
+      <ul id="card-extra"></ul>
+    </div>
+  </div>
+  <p id="fatal" hidden></p>
+  <pre id="test-out"></pre>
+  <script>
+    window.__want = "";
+    document.addEventListener("click", function (e) {
+      var id = e.target && e.target.id;
+      if (id === "btn-1p" || id === "btn-local" || id === "btn-world") window.__want = id;
+    });
+    var status = document.getElementById("menu-status");
+    if (status) status.textContent = "Starting...";
+    window.addEventListener("error", function (e) {
+      var el = document.getElementById("fatal");
+      if (!el) return;
+      el.hidden = false;
+      el.textContent = "Could not start. " + (e.message || "WebGL or a script failed to load.");
+    });
+    setTimeout(function () {
+      if (window.__night) return;
+      var el = document.getElementById("fatal");
+      if (!el) return;
+      el.hidden = false;
+      el.textContent = "Still starting. Stay on this Wi-Fi and reload this page.";
+    }, 12000);
+  </script>
+  <script type="module">
+    import("./js/game.js?v=nl98").catch(function (err) {
+      var el = document.getElementById("fatal");
+      if (!el) return;
+      el.hidden = false;
+      el.textContent = "Could not start. " + (err && err.message ? err.message : "script failed");
+    });
+  </script>
+<div style="position:fixed;right:6px;bottom:4px;z-index:2147483647;pointer-events:none;font:9px/1.2 system-ui,sans-serif;color:rgba(255,255,255,.55);text-shadow:0 0 2px #000,0 0 2px #000;user-select:none">© 2026 cxmx-dev. All rights reserved.</div><script>document.addEventListener("contextmenu",e=>e.preventDefault())</script>
+</body>
+</html>
