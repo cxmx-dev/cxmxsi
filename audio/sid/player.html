@@ -1,0 +1,25 @@
+<!DOCTYPE html><meta charset=utf-8><meta name=robots content=noindex><title>SID player</title>
+<p style="font:12px monospace">C64 SID player (cRSID by Hermit, WebAssembly). &copy; 2026 cxmx-dev. All rights reserved.</p>
+<script>
+document.addEventListener('contextmenu',e=>e.preventDefault());
+var F=(new URLSearchParams(location.search).get('f')||'').replace(/[^\w.-]/g,'');
+function play(){
+  var A=window.AudioContext||window.webkitAudioContext, ctx=new A();
+  if(ctx.state!=='running')ctx.resume();
+  Promise.all([fetch('crsid.wasm?v=1').then(function(r){return r.arrayBuffer()}),fetch(F+'?v=1').then(function(r){if(!r.ok)throw r.status;return r.arrayBuffer()})])
+  .then(function(a){return WebAssembly.instantiate(a[0],{env:{}}).then(function(m){return [m.instance.exports,new Uint8Array(a[1])]})})
+  .then(function(a){
+    var e=a[0],d=a[1];
+    new Uint8Array(e.memory.buffer,e.sid_buf(),d.length).set(d);
+    if(e.sid_load(d.length,Math.min(65535,ctx.sampleRate|0),1)<1)throw 'load';
+    var sp=ctx.createScriptProcessor(4096,1,1),x1=0,y1=0;
+    sp.onaudioprocess=function(ev){
+      var out=ev.outputBuffer.getChannelData(0),n=out.length;
+      e.sid_render(n);
+      var o=new Int16Array(e.memory.buffer,e.sid_out(),n);
+      for(var i=0;i<n;i++){var x=o[i]/32768,y=x-x1+0.995*y1;x1=x;y1=y;y*=3;out[i]=y>1?1:y<-1?-1:y;}
+    };
+    sp.connect(ctx.destination); window._sp=sp;
+  }).catch(function(err){console.warn('sid',err)});
+}
+</script>

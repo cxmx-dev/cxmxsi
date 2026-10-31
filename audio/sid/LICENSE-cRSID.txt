@@ -1,0 +1,20 @@
+crsid.wasm is a WebAssembly build of cRSID by Hermit (Mihaly Horvath), 2022.
+Source: cRSID (as mirrored at github.com/r-moeritz/cRSID).
+
+Original license (WTFPL):
+  "License is still WTF: Do what the fuck you want with this code, but
+   it would be nice mentioning me as the original author."
+
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+                    Version 2, December 2004
+   Everyone is permitted to copy and distribute verbatim or modified
+   copies of this license document, and changing it is allowed as long
+   as the name is changed.
+            DO WHAT THE FUCK YOU WANT TO PUBLIC LICENSE
+   TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
+   0. You just DO WHAT THE FUCK YOU WANT TO.
+
+Changes for this build: GCC nested functions in CPU.c / SID.c were moved to
+file scope (or macros) so the code compiles with clang for wasm32, and a small
+wrapper (sid_buf / sid_load / sid_render) was added. Emulation logic unchanged.
+Thanks, Hermit!
