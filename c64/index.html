@@ -12,7 +12,7 @@
  #pad.on{display:flex}
  #dpad{display:grid;grid-template:repeat(3,52px)/repeat(3,52px);gap:4px}
  #pad button{background:#2a2a2a;color:#ddd;border:1px solid #555;border-radius:8px;font-size:20px}
- #acts{display:grid;grid-template-columns:64px 64px;gap:8px;align-content:center}#acts button{height:64px}#acts button:last-child{grid-column:span 2}
+ #acts{display:grid;grid-template-columns:repeat(3,58px);grid-auto-rows:52px;gap:6px;align-content:center}#acts button{font-size:13px;padding:0}#acts button.wide{grid-column:span 2}
 </style></head>
 <body oncontextmenu="return false;">
 <div id="wrap">
@@ -21,10 +21,12 @@
   <div id="dpad"><i></i><button data-k="up">&#9650;</button><i></i>
    <button data-k="left">&#9664;</button><i></i><button data-k="right">&#9654;</button>
    <i></i><button data-k="down">&#9660;</button><i></i></div>
-  <div id="acts"><button data-k="punch">J</button><button data-k="kick">K</button><button data-k="jump">JUMP</button></div>
+  <div id="acts"><!-- action buttons come from the game config (touch list) --></div>
  </div>
  <div id="bar"><button id="close">Close</button><span id="credit"></span></div>
 </div>
 <script src="player.js"></script>
 </body></html>
+
+
 

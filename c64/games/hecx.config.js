@@ -1,26 +1,28 @@
 // HECX player settings (same layout as strxxt.config.js).
-// HECX controls (in-game screen): FIRE/X rotate CW, SPACE/Z rotate CCW, WASD/JOY move, H hint, RETURN/FIRE start.
+// HECX controls (title + in-game screens): FIRE/X rotate CW, SPACE/Z rotate CCW, WASD/JOY move,
+// H hint, RETURN/FIRE start (in game Return also rotates CW, like FIRE).
 window.C64_CONFIG = {
   title: "HECX",
   prg: "../games/hecx/hecx.prg",     // swap a new build here (path relative to c64/index.html)
   joystickPort: 2,                   // port 2, same as the desktop VICE setup
   autoType: "",                      // "" = core auto-runs the .prg
-  // Keys sent by touch buttons and the gamepad. Pad slots: punch/kick/jump = CW/CCW/START.
+  // Action name -> key sent (touch buttons and gamepad).
   keys: { up: "ArrowUp", down: "ArrowDown", left: "ArrowLeft", right: "ArrowRight",
-          punch: "KeyX", kick: "KeyZ", jump: "Enter" },
-  labels: { punch: "CW", kick: "CCW", jump: "START" },   // touch button text
+          cw: "KeyX", ccw: "KeyZ", hint: "KeyH", start: "Enter" },
+  // Touch action buttons (3 per row; wide = 2 columns).
+  touch: [
+    { label: "CW", key: "cw" }, { label: "CCW", key: "ccw" }, { label: "HINT", key: "hint" },
+    { label: "START", key: "start", wide: true }
+  ],
   touchPad: "auto",                  // "auto" = only on touch screens, "on", "off"
-  // Xbox 360 pad: stick + d-pad move, A = CW, B = CCW, X = CW, Y = CCW, Start = START.
+  // Xbox 360 pad: stick/d-pad move, A/X/RB = CW, B/Y/LB = CCW, Back = hint, Start = START.
   gamepad: {
     enabled: true,
     deadzone: 0.5,
     stick: { x: 0, y: 1 },
-    buttons: { 12: "up", 13: "down", 14: "left", 15: "right", 0: "punch", 1: "kick", 2: "punch", 3: "kick", 9: "jump" }
+    buttons: { 12: "up", 13: "down", 14: "left", 15: "right",
+               0: "cw", 2: "cw", 5: "cw", 1: "ccw", 3: "ccw", 4: "ccw", 8: "hint", 9: "start" }
   },
   credit: "C64 emulation: chips by Andre Weissflog (zlib license)",
   source: "https://github.com/floooh/chips"
 };
-// Touch button labels for this game (the page loads this file after the buttons exist).
-Object.keys(window.C64_CONFIG.labels).forEach(function (k) {
-  var b = document.querySelector('#pad [data-k="' + k + '"]'); if (b) b.textContent = window.C64_CONFIG.labels[k];
-});

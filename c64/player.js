@@ -63,6 +63,13 @@
     var touch = matchMedia("(pointer:coarse)").matches;
     var pad = document.getElementById("pad");
     if (cfg.touchPad === "on" || (cfg.touchPad === "auto" && touch)) pad.classList.add("on");
+    // Action buttons from the config: touch: [{ label, key (action name in keys), wide }]
+    var acts = document.getElementById("acts");
+    (cfg.touch || []).forEach(function (t) {
+      var b = document.createElement("button");
+      b.dataset.k = t.key; b.textContent = t.label; if (t.wide) b.className = "wide";
+      acts.appendChild(b);
+    });
     pad.querySelectorAll("button").forEach(function (b) {
       var code = cfg.keys[b.dataset.k]; if (!code) { b.style.display = "none"; return; }
       b.addEventListener("pointerdown", function (ev) { ev.preventDefault(); send("keydown", code); });
@@ -101,6 +108,7 @@
   }
   window.C64_send = send; // test hook
 })();
+
 
 
 
