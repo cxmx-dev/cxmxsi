@@ -31,12 +31,33 @@
     };
   }
 
-  var codes = { ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, Space: 32, KeyJ: 74, KeyK: 75 };
-  function send(type, code) {
-    var e = new KeyboardEvent(type, { code: code, key: code === "Space" ? " " : code.replace("Key", "").toLowerCase(), bubbles: true });
-    Object.defineProperty(e, "keyCode", { get: function () { return codes[code]; } });
-    Object.defineProperty(e, "which", { get: function () { return codes[code]; } });
+  // Key codes for synthetic key events (touch buttons + gamepad).
+  var codes = { ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, Space: 32, Enter: 13 };
+  function keyCodeOf(code) {
+    if (codes[code]) return codes[code];
+    var m = /^(?:Key|Digit)(.)$/.exec(code);            // KeyJ -> 74, Digit1 -> 49
+    return m ? m[1].charCodeAt(0) : 0;
+  }
+  function keyOf(code) {
+    if (code === "Space") return " ";
+    var m = /^(?:Key|Digit)(.)$/.exec(code);
+    return m ? m[1].toLowerCase() : code;
+  }
+  function fire(type, code, kc, cc) {
+    var e = new KeyboardEvent(type, { code: code, key: keyOf(code), bubbles: true, cancelable: true });
+    Object.defineProperty(e, "keyCode", { get: function () { return kc; } });
+    Object.defineProperty(e, "which", { get: function () { return kc; } });
+    Object.defineProperty(e, "charCode", { get: function () { return cc; } });
     window.dispatchEvent(e);
+  }
+  // Letters reach the C64 keyboard through "keypress" (char) events, like a real
+  // keyboard sends; arrows/Space/Enter go through keydown only. Without the
+  // keypress, touch J/K (and HECX X/Z) did nothing.
+  function send(type, code) {
+    var kc = keyCodeOf(code);
+    fire(type, code, kc, 0);
+    var k = keyOf(code);
+    if (type === "keydown" && k.length === 1 && k !== " ") fire("keypress", code, k.charCodeAt(0), k.charCodeAt(0));
   }
   function setupPad(cfg) {
     var touch = matchMedia("(pointer:coarse)").matches;
@@ -80,5 +101,6 @@
   }
   window.C64_send = send; // test hook
 })();
+
 
 
