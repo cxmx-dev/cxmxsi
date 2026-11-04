@@ -79,7 +79,38 @@
     });
   }
   // Close: tell the Games page overlay (same site only), or go back when opened directly.
+  // Touch devices: the first tap goes fullscreen (hides the browser address bar) and asks
+  // for landscape. Both can be refused by the browser; the layout works either way.
+  var wantFull = matchMedia("(pointer:coarse)").matches;
+  function goFull() {
+    if (!wantFull) return; wantFull = false;
+    var el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    try {
+      var p = req.call(el, { navigationUI: "hide" });
+      var lock = function () { try { screen.orientation.lock("landscape").catch(function () {}); } catch (e) {} };
+      if (p && p.then) p.then(lock, function () {}); else lock();
+    } catch (e) {}
+  }
+  document.addEventListener("pointerup", goFull, true);
+  document.addEventListener("touchend", goFull, true);
+
+  // Real visible height (address bar shown or not) -> --vh, used by the landscape layout.
+  function setVh() {
+    var h = (window.visualViewport && visualViewport.height) || window.innerHeight;
+    document.documentElement.style.setProperty("--vh", h + "px");
+  }
+  setVh();
+  window.addEventListener("resize", setVh);
+  window.addEventListener("orientationchange", function () { setVh(); setTimeout(setVh, 300); });
+  document.addEventListener("fullscreenchange", setVh);
+  if (window.visualViewport) visualViewport.addEventListener("resize", setVh);
+
   function closePlayer() {
+    try {
+      if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
+      if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+    } catch (e) {}
     if (parent !== window) parent.postMessage("c64-close", location.origin); else history.back();
   }
   window.addEventListener("keydown", function (e) { if (e.key === "Escape") closePlayer(); }, true);
@@ -108,6 +139,7 @@
   }
   window.C64_send = send; // test hook
 })();
+
 
 
 

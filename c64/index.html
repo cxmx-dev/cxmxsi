@@ -1,22 +1,46 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <link rel="icon" href="data:,"><title>C64 player</title>
 <style>
  html,body{margin:0;height:100%;background:#111;color:#ccc;font:12px monospace;overflow:hidden;touch-action:none}
  #wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
- #canvas{width:min(96vw,128vh);aspect-ratio:4/3;max-height:80vh;background:#000;image-rendering:pixelated}
+ /* #screen clips the bottom of the canvas, where the core draws its debug stats line */
+ #screen{position:relative;overflow:hidden;width:min(96vw,128vh);aspect-ratio:4/3;max-height:80vh;background:#000}
+ #canvas{position:absolute;left:0;top:0;width:100%;height:106%;image-rendering:pixelated;outline:none}
  #bar{display:flex;gap:12px;margin:6px;align-items:center}
  #bar a,#bar button{color:#ccc;background:#222;border:1px solid #444;padding:4px 10px;font:inherit}
  #pad{display:none;width:96vw;justify-content:space-between;margin-top:8px}
  #pad.on{display:flex}
  #dpad{display:grid;grid-template:repeat(3,52px)/repeat(3,52px);gap:4px}
- #pad button{background:#2a2a2a;color:#ddd;border:1px solid #555;border-radius:8px;font-size:20px}
- #acts{display:grid;grid-template-columns:repeat(3,58px);grid-auto-rows:52px;gap:6px;align-content:center}#acts button{font-size:13px;padding:0}#acts button.wide{grid-column:span 2}
-</style></head>
+ #pad button{background:#2a2a2a;color:#ddd;border:1px solid #555;border-radius:8px;font-size:20px;touch-action:none}
+ #acts{display:grid;grid-template-columns:repeat(3,58px);grid-auto-rows:52px;gap:6px;align-content:center}
+ #acts button{font-size:13px;padding:0}
+ #acts button.wide{grid-column:span 2}
+
+ /* Touch phones held sideways: everything fits inside the visible height (--vh is set from JS,
+    dvh is the CSS fallback). Side columns hold the d-pad (left) and buttons (right). */
+ @media (orientation:landscape) and (pointer:coarse){
+  :root{--H:var(--vh,100dvh);--W:100vw;--side:clamp(120px,20vw,200px);--u:min(calc(var(--H)*.15),calc(var(--side)/3.5),52px);
+   --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
+  html,body{height:var(--H)}
+  #wrap{position:fixed;left:0;top:0;width:100vw;height:var(--H);display:block}
+  #screen{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-height:none;aspect-ratio:auto;
+   height:min(calc(var(--H) - var(--st) - var(--sb)),calc((var(--W) - 2*var(--side) - var(--sl) - var(--sr))*3/4));
+   width:min(calc((var(--H) - var(--st) - var(--sb))*4/3),calc(var(--W) - 2*var(--side) - var(--sl) - var(--sr)))}
+  #pad.on{display:block;position:absolute;inset:0;width:auto;margin:0;pointer-events:none}
+  #dpad,#acts{position:absolute;bottom:calc(8px + var(--sb));pointer-events:auto}
+  #dpad{left:calc(6px + var(--sl));grid-template:repeat(3,var(--u))/repeat(3,var(--u));gap:3px}
+  #acts{right:calc(6px + var(--sr));grid-template-columns:repeat(2,calc(var(--u)*1.45));grid-auto-rows:var(--u);gap:4px}
+  #acts button.wide{grid-column:auto}
+  #pad button{background:rgba(42,42,42,.85);font-size:calc(var(--u)*.38)}
+  #acts button{font-size:calc(var(--u)*.26)}
+  #bar{position:absolute;top:calc(6px + var(--st));left:calc(6px + var(--sl));margin:0;flex-direction:column;align-items:flex-start;gap:3px;max-width:calc(var(--side) - 12px);font-size:9px;opacity:.8}
+  #bar button{padding:5px 10px;font-size:12px}#bar a{display:inline-block;margin-top:2px;padding:2px 6px}#credit{line-height:1.5}
+ }</style></head>
 <body oncontextmenu="return false;">
 <div id="wrap">
- <canvas id="canvas" tabindex="0"></canvas>
+ <div id="screen"><canvas id="canvas" tabindex="0"></canvas></div>
  <div id="pad">
   <div id="dpad"><i></i><button data-k="up">&#9650;</button><i></i>
    <button data-k="left">&#9664;</button><i></i><button data-k="right">&#9654;</button>
@@ -27,6 +51,4 @@
 </div>
 <script src="player.js"></script>
 </body></html>
-
-
 
